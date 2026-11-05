@@ -3,3 +3,5 @@ data/
 *.log
 .env
 demo/dist/
+anteprime/
+*.zip
