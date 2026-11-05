@@ -1,0 +1,533 @@
+// Scene per il LED wall, disegnate su canvas. Stesso codice per la pagina LED (animata),
+// per le anteprime in regia (fotogramma finale) e per l'export PNG.
+// Si adatta a qualsiasi proporzione: la risoluzione del LED è ancora da confermare.
+import { C, paper, brush, scribble, plus, loadImage, fontsReady, rng } from './deco.js';
+
+const F = 'Archivo, system-ui, sans-serif';
+const imgs = new Map(); // src -> Image (solo quando caricata)
+export function preload(srcs) {
+  return Promise.all(srcs.filter(Boolean).map(async (src) => {
+    if (imgs.has(src)) return;
+    const im = await loadImage(src);
+    if (im) imgs.set(src, im);
+  }));
+}
+const img = (src) => imgs.get(src);
+
+const bgCache = new Map();
+function background(W, H) {
+  const k = `${W}x${H}`;
+  if (!bgCache.has(k)) {
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    paper(c.getContext('2d'), W, H, 21);
+    bgCache.set(k, c);
+  }
+  return bgCache.get(k);
+}
+
+const fmt = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ','));
+const ease = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+const L = 'ABCD';
+
+/**
+ * Disegna una scena.
+ *  el: millisecondi dall'inizio della scena (Infinity = fotogramma finale, per anteprime e PNG)
+ *  env: { config, qr, now (ora del server), closedSeenAt }
+ */
+export function drawScene(cv, scene, env, { width = 1920, height = 1080, el = Infinity, transparent = false } = {}) {
+  if (cv.width !== width) cv.width = width;
+  if (cv.height !== height) cv.height = height;
+  const ctx = cv.getContext('2d');
+  const W = width, H = height, u = Math.min(W / 1920, H / 1080) * (W / H < 1.3 ? 1.25 : 1);
+  ctx.clearRect(0, 0, W, H);
+  if (!transparent) ctx.drawImage(background(W, H), 0, 0);
+  const g = { ctx, W, H, u, el, env, t: el === Infinity ? 0 : el };
+  if (!transparent) decorations(g);
+  const type = scene?.type || 'promo';
+  if (type === 'promo') promo(g);
+  else if (type === 'classifica') classifica(g, scene);
+  else if (type === 'generazioni') generazioni(g, scene);
+  else if (type === 'sos') sos(g, scene);
+  else if (type === 'verdetto') verdetto(g, scene);
+  else if (type === 'chiuse') chiuse(g);
+  return cv;
+}
+
+function decorations({ ctx, W, H, u, t }) {
+  const wob = Math.sin(t / 700) * 6 * u;
+  scribble(ctx, W * 0.02, H * 0.84 + wob, W * 0.16, H * 0.1, C.lime, 13 * u, 3);
+  scribble(ctx, W * 0.82, H * 0.04 - wob, W * 0.16, H * 0.08, C.lime, 11 * u, 8);
+  ctx.save();
+  ctx.translate(W * 0.94, H * 0.9); ctx.rotate(t / 1500);
+  plus(ctx, 0, 0, 22 * u, C.fucsia, 6 * u);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(W * 0.05, H * 0.1); ctx.rotate(-t / 1800);
+  plus(ctx, 0, 0, 18 * u, C.fucsia, 6 * u);
+  ctx.restore();
+}
+
+function title(g, text, y, { size = 86, color = C.viola, maxW } = {}) {
+  const { ctx, W, u, t } = g;
+  ctx.font = `900 ${size * u}px ${F}`;
+  const tw = Math.min(ctx.measureText(text).width, maxW || W * 0.8);
+  const bw = tw + 160 * u, bh = size * 1.75 * u;
+  brush(ctx, W / 2 - bw / 2, y, bw, bh, color, text.length);
+  ctx.save();
+  ctx.translate(W / 2, y + bh * 0.62);
+  ctx.rotate(Math.sin(t / 900) * 0.008);
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, 0, 0, maxW || W * 0.8);
+  ctx.restore();
+  return y + bh;
+}
+
+function tag(g, text, x, y, { bg = C.lime, size = 30, align = 'center' } = {}) {
+  const { ctx, u } = g;
+  ctx.font = `800 ${size * u}px ${F}`;
+  const w = ctx.measureText(text).width + 40 * u;
+  const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  ctx.fillStyle = bg; ctx.fillRect(x0, y, w, size * 1.55 * u);
+  ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 3 * u; ctx.strokeRect(x0, y, w, size * 1.55 * u);
+  ctx.fillStyle = C.inchiostro; ctx.textAlign = 'left';
+  ctx.fillText(text, x0 + 20 * u, y + size * 1.1 * u);
+  return w;
+}
+
+function logo(g, x, y, h) {
+  const im = img('/img/logo.webp');
+  if (im) g.ctx.drawImage(im, x, y, h * im.width / im.height, h);
+}
+
+// ---------- PROMO / QR: "Sei tu a decidere chi vincerà" ----------
+function promo(g) {
+  const { ctx, W, H, u, t, env } = g;
+  const cfg = env.config;
+  const wide = W / H > 1.3;
+  logo(g, 60 * u, 50 * u, 220 * u);
+  const p = cfg?.show?.promo || { titolo: 'Sei tu a decidere chi vincerà', testo: 'Inquadra il QR e vota per tutta la puntata' };
+  const words = p.titolo.toUpperCase().split(' ');
+  // dividi il titolo in due righe il più possibile equilibrate
+  let best = 1, diff = Infinity;
+  for (let k = 1; k < words.length; k++) {
+    const d = Math.abs(words.slice(0, k).join(' ').length - words.slice(k).join(' ').length);
+    if (d < diff) { diff = d; best = k; }
+  }
+  const lines = [words.slice(0, best).join(' '), words.slice(best).join(' ')];
+  const qrSize = (wide ? 500 : 600) * u;
+  const qx = wide ? W - qrSize - 150 * u : W / 2 - qrSize / 2;
+  const qy = wide ? H / 2 - qrSize / 2 + 30 * u : H * 0.52;
+  const textCx = wide ? (qx - 60 * u) / 2 + 30 * u : W / 2;
+  const textTop = wide ? H * 0.28 : H * 0.18;
+  const maxW = wide ? qx - 320 * u : W * 0.8;
+  // emoji che salgono (richiamo alle reazioni), dietro ai testi
+  const em = ['😂', '❤️', '😬', '😡'];
+  ctx.font = `${64 * u}px ${F}`;
+  for (let i = 0; i < 7; i++) {
+    const r = rng(i + 3);
+    const sp = 9000 + r() * 5000;
+    const ph = ((t + r() * sp) % sp) / sp;
+    const x = (wide ? textCx - 420 * u : W * 0.1) + r() * (wide ? 840 * u : W * 0.8);
+    const y = H + 60 * u - ph * (H * 0.55);
+    ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.85;
+    ctx.fillText(em[i % 4], x, y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.font = `900 ${100 * u}px ${F}`;
+  const widest = Math.max(...lines.map((l) => ctx.measureText(l).width));
+  const fs = Math.min(100, (100 * maxW) / widest);
+  lines.forEach((line, i) => {
+    ctx.font = `900 ${fs * u}px ${F}`;
+    const tw = ctx.measureText(line).width;
+    const bob = Math.sin(t / 420 + i * 1.4) * 8 * u;
+    const y = textTop + i * (fs * 1.6) * u + bob;
+    brush(ctx, textCx - tw / 2 - 60 * u, y, tw + 120 * u, fs * 1.55 * u, i ? C.fucsia : C.viola, 11 + i);
+    ctx.fillStyle = i ? C.inchiostro : '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(line, textCx, y + fs * 1.08 * u);
+  });
+  // sottotitolo
+  ctx.font = `800 ${40 * u}px ${F}`;
+  const sub = p.testo;
+  const sw = ctx.measureText(sub).width + 50 * u;
+  const sy = textTop + fs * 3.4 * u;
+  ctx.fillStyle = '#fff'; ctx.fillRect(textCx - sw / 2, sy, sw, 72 * u);
+  ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 4 * u; ctx.strokeRect(textCx - sw / 2, sy, sw, 72 * u);
+  ctx.fillStyle = C.inchiostro; ctx.fillText(sub, textCx, sy + 50 * u);
+  // QR che pulsa
+  const pulse = 1 + Math.sin(t / 380) * 0.025;
+  ctx.save();
+  ctx.translate(qx + qrSize / 2, qy + qrSize / 2);
+  ctx.scale(pulse, pulse);
+  ctx.rotate(-0.02);
+  const pad = 34 * u;
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(-qrSize / 2 - pad + 14 * u, -qrSize / 2 - pad + 14 * u, qrSize + pad * 2, qrSize + pad * 2);
+  ctx.fillStyle = '#fff'; ctx.fillRect(-qrSize / 2 - pad, -qrSize / 2 - pad, qrSize + pad * 2, qrSize + pad * 2);
+  ctx.lineWidth = 6 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(-qrSize / 2 - pad, -qrSize / 2 - pad, qrSize + pad * 2, qrSize + pad * 2);
+  const q = env.qr && img(env.qr.dataUrl);
+  if (q) ctx.drawImage(q, -qrSize / 2, -qrSize / 2, qrSize, qrSize);
+  else { ctx.fillStyle = C.carta; ctx.fillRect(-qrSize / 2, -qrSize / 2, qrSize, qrSize); }
+  ctx.restore();
+  ctx.textAlign = 'left';
+  tag(g, 'INQUADRA QUI ↑', qx + qrSize / 2, qy + qrSize + 70 * u, { bg: C.lime, size: 34 });
+  if (env.qr?.url) {
+    ctx.font = `700 ${24 * u}px ${F}`; ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
+    ctx.fillText(env.qr.url.replace(/^https?:\/\//, '').replace(/\/$/, ''), qx + qrSize / 2, qy + qrSize + 160 * u);
+  }
+  // titolo dello show in basso
+  if (cfg?.show) {
+    ctx.font = `800 ${30 * u}px ${F}`; ctx.fillStyle = C.inchiostro; ctx.textAlign = wide ? 'left' : 'center';
+    ctx.fillText(cfg.show.testoLed || cfg.show.titolo, wide ? 60 * u : W / 2, H - 50 * u, W - 120 * u);
+  }
+  ctx.textAlign = 'left';
+}
+
+// ---------- CLASSIFICA (fotografata al momento della preparazione) ----------
+function classifica(g, scene) {
+  const { ctx, W, H, u, env } = g;
+  const y0 = title(g, 'CLASSIFICA', 40 * u, { size: 86 });
+  const when = scene.standings?.t ? new Date(scene.standings.t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+  tag(g, `PROVVISORIA${when ? ' · ORE ' + when : ''}`, W / 2, y0 + 4 * u, { bg: C.giallo, size: 28 });
+  logo(g, 40 * u, 30 * u, 150 * u);
+  const teams = scene.standings?.coppie || [];
+  const conts = Object.fromEntries((env.config?.concorrenti || []).map((c) => [c.id, c]));
+  const top = y0 + 80 * u, bottom = H - 50 * u;
+  const wide = W / H > 1.3;
+  teams.forEach((t, i) => {
+    let x, y, w, h;
+    if (wide) { const gap = 40 * u, cw = (W - gap * (teams.length + 1)) / teams.length; x = gap + i * (cw + gap); y = top; w = cw; h = bottom - top; }
+    else { const gap = 30 * u, ch = (bottom - top - gap * (teams.length - 1)) / teams.length; x = 50 * u; y = top + i * (ch + gap); w = W - 100 * u; h = ch; }
+    const k = ease((g.t - i * 180) / 600);
+    ctx.save();
+    ctx.globalAlpha = g.el === Infinity ? 1 : k;
+    ctx.translate(0, g.el === Infinity ? 0 : (1 - k) * 60 * u);
+    teamCard(g, t, conts, x, y, w, h, wide, i, true);
+    ctx.restore();
+  });
+}
+
+function teamCard(g, t, conts, x, y, w, h, wide, i, details) {
+  const { ctx, u } = g;
+  const rot = [-0.012, 0.008, -0.006][i % 3];
+  ctx.save();
+  ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rot); ctx.translate(-w / 2, -h / 2);
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(10 * u, 10 * u, w, h);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+  ctx.lineWidth = 5 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(0, 0, w, h);
+  ctx.fillStyle = t.colore || C.lime;
+  const band = wide ? 90 * u : h;
+  if (wide) ctx.fillRect(0, 0, w, band); else ctx.fillRect(0, 0, 140 * u, h);
+  ctx.fillStyle = C.inchiostro;
+  ctx.font = `900 ${(wide ? 70 : 90) * u}px ${F}`;
+  const pos = `${t.posizione}°${t.exAequo ? '=' : ''}`;
+  if (wide) ctx.fillText(pos, 24 * u, 70 * u);
+  else { ctx.textAlign = 'center'; ctx.fillText(pos, 70 * u, h / 2 + 32 * u); ctx.textAlign = 'left'; }
+  ctx.font = `900 ${(wide ? 40 : 44) * u}px ${F}`;
+  const nameX = wide ? 150 * u : 170 * u;
+  ctx.fillText(t.nome.toUpperCase(), nameX, wide ? 60 * u : 62 * u, w - nameX - 20 * u);
+  const ph = wide ? Math.min(w * 0.36, h * 0.30) : Math.min(h * 0.62, 200 * u);
+  const py = wide ? band + 24 * u : h - ph - 22 * u;
+  let px = wide ? 24 * u : 170 * u;
+  for (const cid of t.membri) {
+    const c = conts[cid];
+    const im = c && img(c.foto);
+    ctx.fillStyle = C.carta; ctx.fillRect(px, py, ph, ph);
+    if (im) ctx.drawImage(im, px, py, ph, ph);
+    ctx.lineWidth = 4 * u; ctx.strokeRect(px, py, ph, ph);
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(px, py + ph - 38 * u, ph, 38 * u);
+    ctx.fillStyle = '#fff'; ctx.font = `900 ${22 * u}px ${F}`; ctx.textAlign = 'center';
+    ctx.fillText((c?.nome || '').toUpperCase(), px + ph / 2, py + ph - 11 * u, ph - 8 * u);
+    ctx.textAlign = 'left';
+    px += ph + 16 * u;
+  }
+  if (details) {
+    const rows = [['QUIZ', t.quiz], ['PUBBLICO', t.pubblico]];
+    if (t.sugarfree) rows.push(['SUGARFREE', t.sugarfree]);
+    if (t.correzioni) rows.push(['CORREZIONI', t.correzioni]);
+    ctx.font = `800 ${26 * u}px ${F}`;
+    let ry = wide ? py + ph + 50 * u : 110 * u;
+    const rx = wide ? 24 * u : px + 20 * u;
+    const rw = wide ? w - 48 * u : 300 * u;
+    for (const [k, v] of rows) {
+      ctx.fillStyle = C.inchiostro; ctx.fillText(k, rx, ry);
+      ctx.textAlign = 'right'; ctx.fillText(fmt(v), rx + rw, ry); ctx.textAlign = 'left';
+      ry += 40 * u;
+    }
+  }
+  const totS = fmt(t.totale);
+  ctx.font = `900 ${(wide ? 120 : 130) * u}px ${F}`;
+  const tw = ctx.measureText(totS).width;
+  const tx = wide ? w / 2 - tw / 2 : w - tw - 50 * u;
+  const ty = wide ? h - 50 * u : h / 2 + 46 * u;
+  ctx.fillStyle = C.viola; ctx.fillRect(tx - 24 * u, ty - 112 * u, tw + 48 * u, 136 * u);
+  ctx.fillStyle = C.lime; ctx.fillText(totS, tx, ty);
+  ctx.restore();
+}
+
+// ---------- GENERAZIONI IN SALA ----------
+function generazioni(g, scene) {
+  const { ctx, W, H, u, env } = g;
+  const y0 = title(g, 'CHI C\'È IN SALA STASERA?', 40 * u, { size: 80 });
+  logo(g, 40 * u, 30 * u, 150 * u);
+  const st = scene.stats || { total: 0, counts: {} };
+  const gens = (env.config?.generazioni || []).filter((x) => st.counts[x.id] > 0);
+  if (!st.total) {
+    ctx.font = `900 ${60 * u}px ${F}`; ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
+    ctx.fillText('Ancora nessun dato', W / 2, H / 2 + 60 * u); ctx.textAlign = 'left';
+    return;
+  }
+  const top = y0 + 60 * u, bottom = H - 60 * u;
+  const rowH = Math.min(120 * u, (bottom - top) / gens.length);
+  const labelW = 470 * u, x0 = 90 * u, barMax = W - x0 - labelW - 260 * u;
+  const max = Math.max(...gens.map((x) => st.counts[x.id]));
+  gens.forEach((gn, i) => {
+    const y = top + i * rowH;
+    const pct = st.counts[gn.id] / st.total;
+    const k = ease((g.t - 300 - i * 220) / 1200);
+    const prog = g.el === Infinity ? 1 : k;
+    ctx.font = `900 ${Math.min(44, rowH / u * 0.42) * u}px ${F}`;
+    ctx.fillStyle = C.inchiostro; ctx.textAlign = 'right';
+    ctx.fillText(gn.nome.toUpperCase(), x0 + labelW - 20 * u, y + rowH * 0.62, labelW - 20 * u);
+    ctx.textAlign = 'left';
+    const bw = Math.max(8 * u, barMax * (st.counts[gn.id] / max) * prog);
+    const bh = rowH * 0.7;
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(x0 + labelW + 8 * u, y + (rowH - bh) / 2 + 8 * u, bw, bh);
+    ctx.fillStyle = gn.colore || C.lime; ctx.fillRect(x0 + labelW, y + (rowH - bh) / 2, bw, bh);
+    ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 4 * u; ctx.strokeRect(x0 + labelW, y + (rowH - bh) / 2, bw, bh);
+    ctx.font = `900 ${Math.min(56, rowH / u * 0.5) * u}px ${F}`;
+    ctx.fillStyle = C.inchiostro;
+    ctx.fillText(`${Math.round(pct * 100 * prog)}%`, x0 + labelW + bw + 24 * u, y + rowH * 0.66);
+  });
+}
+
+// ---------- SOS: domanda + countdown, poi percentuali, poi risposta corretta ----------
+function sos(g, scene) {
+  const { ctx, W, H, u, env } = g;
+  const s = scene.sos;
+  if (!s) return promo(g);
+  const y0 = title(g, 'SOS DEL PUBBLICO', 34 * u, { size: 78, color: C.viola });
+  logo(g, 40 * u, 26 * u, 140 * u);
+  if (s.coppia) tag(g, `AIUTA LA ${s.coppia.toUpperCase()}`, W / 2, y0, { bg: s.colore || C.lime, size: 30 });
+  const wide = W / H > 1.3;
+  const now = env.now ? env.now() : Date.now();
+  const left = Math.max(0, s.endsAt - now);
+  const closed = s.closed || left <= 0;
+  const ringR = 110 * u;
+  const qx = 70 * u, qy = y0 + 80 * u;
+  const qw = wide ? W - 140 * u - (closed ? 0 : ringR * 2 + 60 * u) : W - 140 * u;
+  // domanda
+  ctx.font = `900 ${54 * u}px ${F}`;
+  const lines = wrapLines(ctx, s.domanda, qw - 60 * u);
+  const qh = Math.max(130 * u, lines.length * 64 * u + 50 * u);
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(qx + 10 * u, qy + 10 * u, qw, qh);
+  ctx.fillStyle = '#fff'; ctx.fillRect(qx, qy, qw, qh);
+  ctx.lineWidth = 5 * u; ctx.strokeRect(qx, qy, qw, qh);
+  ctx.fillStyle = C.inchiostro;
+  lines.forEach((l, i) => ctx.fillText(l, qx + 30 * u, qy + 75 * u + i * 64 * u));
+  // countdown
+  if (!closed) {
+    const cx = wide ? W - 70 * u - ringR : W / 2, cy = wide ? qy + qh / 2 : H - 160 * u;
+    const total = Math.max(1000, s.endsAt - s.startedAt);
+    ctx.lineWidth = 26 * u; ctx.strokeStyle = 'rgba(23,18,31,.15)';
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = left < 6000 ? '#ff4d5e' : C.viola; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (left / total)); ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, ringR - 16 * u, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = left < 6000 ? '#ff4d5e' : C.inchiostro; ctx.font = `900 ${100 * u}px ${F}`; ctx.textAlign = 'center';
+    ctx.fillText(String(Math.ceil(left / 1000)), cx, cy + 36 * u);
+    ctx.textAlign = 'left';
+  }
+  // opzioni (2x2)
+  const oy = qy + qh + 50 * u;
+  const footer = closed ? 40 * u : 110 * u;
+  const cols = 2, gap = 30 * u;
+  const ow = (W - 140 * u - gap) / cols;
+  const oh = Math.min(150 * u, (H - oy - footer - gap) / 2);
+  const total = s.counts ? s.counts.reduce((a, b) => a + b, 0) : 0;
+  if (closed && g.el !== Infinity && !env.closedSeenAt) env.closedSeenAt = performance.now();
+  const kClosed = g.el === Infinity || !env.closedSeenAt ? 1 : ease((performance.now() - env.closedSeenAt) / 1400);
+  s.opzioni.forEach((o, i) => {
+    const x = 70 * u + (i % cols) * (ow + gap), y = oy + Math.floor(i / cols) * (oh + gap);
+    const isTop = closed && s.top?.includes(i);
+    const isCorrect = s.corretta === i;
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(x + 8 * u, y + 8 * u, ow, oh);
+    ctx.fillStyle = '#fff'; ctx.fillRect(x, y, ow, oh);
+    if (closed && s.counts) {
+      const pct = total ? s.counts[i] / total : 0;
+      ctx.fillStyle = isCorrect ? C.turchese : isTop ? C.fucsia : C.lime;
+      ctx.fillRect(x, y, ow * pct * kClosed, oh);
+    }
+    ctx.lineWidth = (isCorrect ? 10 : isTop ? 8 : 5) * u;
+    ctx.strokeStyle = C.inchiostro; ctx.strokeRect(x, y, ow, oh);
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(x + 20 * u, y + oh / 2 - 40 * u, 80 * u, 80 * u);
+    ctx.fillStyle = '#fff'; ctx.font = `900 ${54 * u}px ${F}`; ctx.textAlign = 'center';
+    ctx.fillText(L[i], x + 60 * u, y + oh / 2 + 20 * u);
+    ctx.textAlign = 'left'; ctx.fillStyle = C.inchiostro; ctx.font = `800 ${44 * u}px ${F}`;
+    ctx.fillText(o, x + 125 * u, y + oh / 2 + 16 * u, ow - (closed ? 330 : 150) * u);
+    if (closed && s.counts) {
+      const pct = total ? Math.round((s.counts[i] / total) * 100 * kClosed) : 0;
+      ctx.font = `900 ${64 * u}px ${F}`; ctx.textAlign = 'right';
+      ctx.fillText(`${pct}%`, x + ow - 30 * u, y + oh / 2 + 22 * u);
+      ctx.textAlign = 'left';
+    }
+    if (isCorrect) tag(g, '✓ RISPOSTA CORRETTA', x + ow, y - 34 * u, { bg: C.turchese, size: 26, align: 'right' });
+  });
+  // piede
+  ctx.textAlign = 'center';
+  if (!closed) {
+    ctx.font = `900 ${50 * u}px ${F}`; ctx.fillStyle = C.inchiostro;
+    const pulse = 1 + Math.sin(g.t / 260) * 0.03;
+    ctx.save(); ctx.translate(W / 2, H - 50 * u); ctx.scale(pulse, pulse);
+    ctx.fillText(`VOTA ORA DAL TELEFONO · ${s.voters} VOTI`, 0, 0); ctx.restore();
+  } else if (s.counts && kClosed >= 1 && s.corretta == null) {
+    ctx.font = `900 ${40 * u}px ${F}`; ctx.fillStyle = C.inchiostro;
+    ctx.fillText(!total ? 'NESSUN VOTO' : s.tie ? 'PARITÀ! IL PUBBLICO È DIVISO' : `${total} VOTI`, W / 2, H - 30 * u);
+  }
+  ctx.textAlign = 'left';
+}
+
+function wrapLines(ctx, text, maxW) {
+  const words = String(text).split(/\s+/); const lines = []; let line = '';
+  for (const w of words) { const t = line ? `${line} ${w}` : w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
+  if (line) lines.push(line);
+  return lines.slice(0, 3);
+}
+
+// ---------- VERDETTO: rivelazione dal 3° al 1° posto ----------
+export const VERDICT_STEPS = [1500, 3800, 6500]; // ms: quando compaiono 3°, 2°, 1°
+function verdetto(g, scene) {
+  const { ctx, W, H, u, env, t } = g;
+  const y0 = title(g, 'IL VERDETTO', 36 * u, { size: 90, color: C.viola });
+  logo(g, 40 * u, 26 * u, 150 * u);
+  const teams = scene.standings?.coppie || [];
+  const conts = Object.fromEntries((env.config?.concorrenti || []).map((c) => [c.id, c]));
+  const positions = [...new Set(teams.map((x) => x.posizione))].sort((a, b) => b - a); // peggiore → migliore
+  const revealAt = (pos) => {
+    const k = positions.indexOf(pos);
+    return VERDICT_STEPS[Math.min(VERDICT_STEPS.length - 1, VERDICT_STEPS.length - positions.length + k)] ?? 0;
+  };
+  const wide = W / H > 1.3;
+  // podio: 2° a sinistra, 1° al centro (più alto), 3° a destra
+  const order = [...teams].sort((a, b) => a.posizione - b.posizione);
+  const slots = wide ? [1, 0, 2] : [0, 1, 2];
+  const top = y0 + 50 * u, bottom = H - 120 * u;
+  const n = order.length;
+  order.forEach((tm, rank) => {
+    const slot = slots[rank] ?? rank;
+    let x, y, w, h;
+    if (wide) {
+      const gap = 40 * u, cw = (W - gap * (n + 1)) / n;
+      x = gap + slot * (cw + gap); w = cw;
+      const lift = tm.posizione === 1 ? 0 : tm.posizione === 2 ? 50 * u : 90 * u;
+      y = top + lift; h = bottom - top - lift;
+    } else {
+      const gap = 24 * u, ch = (bottom - top - gap * (n - 1)) / n;
+      x = 50 * u; y = top + slot * (ch + gap); w = W - 100 * u; h = ch;
+    }
+    const ra = revealAt(tm.posizione);
+    const k = g.el === Infinity ? 1 : ease((t - ra) / 700);
+    if (k <= 0) {
+      // carta coperta
+      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate([-0.012, 0.008, -0.006][slot % 3]);
+      ctx.fillStyle = C.inchiostro; ctx.fillRect(-w / 2 + 10 * u, -h / 2 + 10 * u, w, h);
+      ctx.fillStyle = C.viola; ctx.fillRect(-w / 2, -h / 2, w, h);
+      ctx.lineWidth = 5 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(-w / 2, -h / 2, w, h);
+      ctx.fillStyle = C.lime; ctx.font = `900 ${200 * u}px ${F}`; ctx.textAlign = 'center';
+      ctx.fillText('?', 0, 70 * u + Math.sin(t / 200 + slot) * 8 * u); ctx.textAlign = 'left';
+      ctx.restore();
+      return;
+    }
+    ctx.save();
+    ctx.globalAlpha = k;
+    ctx.translate(x + w / 2, y + h / 2); ctx.scale(0.85 + 0.15 * k, 0.85 + 0.15 * k); ctx.translate(-(x + w / 2), -(y + h / 2));
+    teamCard(g, tm, conts, x, y, w, h, wide, slot, true);
+    ctx.restore();
+  });
+  const winners = order.filter((x) => x.posizione === 1);
+  const last = VERDICT_STEPS[VERDICT_STEPS.length - 1];
+  const kw = g.el === Infinity ? 1 : ease((t - last - 500) / 600);
+  if (kw > 0 && winners.length) {
+    const txt = winners.length > 1 ? 'EX AEQUO! VINCONO ' + winners.map((w) => w.nome.toUpperCase()).join(' E ') : `VINCE LA ${winners[0].nome.toUpperCase()}!`;
+    ctx.save(); ctx.globalAlpha = kw;
+    ctx.font = `900 ${64 * u}px ${F}`;
+    const tw = Math.min(ctx.measureText(txt).width, W - 200 * u);
+    brush(ctx, W / 2 - tw / 2 - 60 * u, H - 125 * u, tw + 120 * u, 110 * u, C.fucsia, 7);
+    ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
+    ctx.fillText(txt, W / 2, H - 50 * u, W - 200 * u);
+    ctx.restore();
+    // coriandoli
+    if (g.el !== Infinity) {
+      const cols = [C.lime, C.fucsia, C.turchese, C.giallo, C.viola];
+      for (let i = 0; i < 90; i++) {
+        const r = rng(i + 100);
+        const st = last + 400 + r() * 1500;
+        const ph = (t - st) / 4000;
+        if (ph < 0 || ph > 1) continue;
+        ctx.fillStyle = cols[i % cols.length];
+        const x = r() * W + Math.sin(ph * 10 + i) * 40 * u;
+        const y = -20 * u + ph * (H + 40 * u);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(ph * 12 + i);
+        ctx.fillRect(-8 * u, -4 * u, 16 * u, 8 * u); ctx.restore();
+      }
+    }
+  }
+}
+
+export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale' };
+
+// ---------- VOTAZIONI CHIUSE: attesa del verdetto ----------
+function chiuse(g) {
+  const { ctx, W, H, u, t, env } = g;
+  logo(g, 60 * u, 50 * u, 200 * u);
+  const vc = env.config?.show?.votazioniChiuse || {};
+  const wide = W / H > 1.3;
+  // timbro "VOTAZIONI CHIUSE" che entra e oscilla
+  const k = g.el === Infinity ? 1 : ease(t / 700);
+  ctx.save();
+  ctx.translate(W / 2, H * 0.38);
+  ctx.rotate(-0.06 + Math.sin(t / 900) * 0.01);
+  ctx.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
+  ctx.globalAlpha = k;
+  ctx.font = `900 ${(wide ? 150 : 120) * u}px ${F}`;
+  const txt = (vc.titolo || 'Votazioni chiuse').toUpperCase();
+  const tw = Math.min(ctx.measureText(txt).width, W * 0.86);
+  brush(ctx, -tw / 2 - 70 * u, -130 * u, tw + 140 * u, 220 * u, C.viola, 5);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.fillText(txt, 0, 45 * u, W * 0.86);
+  ctx.restore();
+  // sottotitolo
+  ctx.globalAlpha = g.el === Infinity ? 1 : ease((t - 600) / 600);
+  ctx.font = `800 ${46 * u}px ${F}`;
+  const sub = 'Ora la parola agli Sugarfree…';
+  const sw = Math.min(ctx.measureText(sub).width + 60 * u, W - 120 * u);
+  ctx.fillStyle = '#fff'; ctx.fillRect(W / 2 - sw / 2, H * 0.58, sw, 84 * u);
+  ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 5 * u; ctx.strokeRect(W / 2 - sw / 2, H * 0.58, sw, 84 * u);
+  ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
+  ctx.fillText(sub, W / 2, H * 0.58 + 58 * u, W - 160 * u);
+  // rullo di tamburi: tre bacchette che battono
+  ctx.font = `${110 * u}px ${F}`;
+  ['🥁', '🥁', '🥁'].forEach((d, i) => {
+    const bounce = g.el === Infinity ? 0 : Math.abs(Math.sin(t / 160 + i * 1.1)) * 26 * u;
+    ctx.fillText(d, W / 2 + (i - 1) * 190 * u, H * 0.86 - bounce);
+  });
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+}
+
+export async function prepareAssets(config, qr) {
+  await fontsReady();
+  await preload(['/img/logo.webp', qr?.dataUrl, ...(config?.concorrenti || []).map((c) => c.foto)]);
+}
+
+export async function downloadPng(cv, name = 'cultpop-led.png') {
+  const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}

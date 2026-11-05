@@ -1,0 +1,32 @@
+# Configurazione per Render (render.com): crea il servizio con «New → Blueprint».
+# Un solo server, con disco per salvare lo stato dello show. NON aumentare le istanze:
+# lo stato è in memoria e deve esistere un solo server.
+services:
+  - type: web
+    name: cultpop-live
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: dati-show
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data
+      - key: PUBLIC_URL
+        value: https://live.cultpop.it
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: SCREEN_KEY
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true

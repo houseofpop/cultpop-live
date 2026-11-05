@@ -1,0 +1,25 @@
+{
+  "name": "cultpop-live",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "description": "Cult Pop LIVE - piattaforma interattiva per lo show dal vivo",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/*.test.js",
+    "simulate": "node scripts/simulate.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fontsource/archivo": "^5.1.0",
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Cult Pop LIVE · Control Room</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/regia.css">
+</head>
+<body>
+  <section id="login" class="login paper-bg">
+    <form id="loginForm" class="login-box">
+      <img src="/img/logo.webp" alt="Cult Pop" class="login-logo">
+      <h1>Control Room</h1>
+      <input id="pw" type="password" placeholder="Password regia" autocomplete="current-password" required>
+      <button class="btn viola" type="submit">Entra</button>
+      <p id="loginErr" class="err"></p>
+    </form>
+  </section>
+
+  <div id="room" class="room hidden">
+    <header class="topbar" id="topbar">
+      <div class="show-switch">
+        <button data-show="live" class="sw">LIVE</button>
+        <button data-show="prova" class="sw">PROVA</button>
+      </div>
+      <div class="stat"><span id="connDot" class="dot"></span><b id="connected">0</b> connessi</div>
+      <div class="chip phones-chip">📱 Telefoni: <b id="modePill">—</b></div>
+      <div class="chip led-chip">🖥 LED: <b id="ledPill">—</b></div>
+      <button id="openBtn" class="tbtn"></button>
+      <button id="lockBtn" class="tbtn"></button>
+      <button id="backBtn" class="tbtn big">↩ TELEFONI SU REAZIONI</button>
+    </header>
+
+    <main class="cols">
+      <aside class="col zone-phones">
+        <h2 class="zone-title">📱 Telefoni</h2>
+        <div class="cue-group">
+          <h3>SOS pubblico · un aiuto per coppia</h3>
+          <label class="check"><input type="checkbox" id="sosLed" checked> Mostra subito anche sul LED</label>
+          <div id="sosCues"></div>
+        </div>
+        <div class="cue-group">
+          <h3>Fine show</h3>
+          <p class="muted">Chiudendo i voti, telefoni e LED mostrano «Votazioni chiuse». Poi: voto Sugarfree, verdetto, finale.</p>
+          <button class="cue hold dark-hold" id="freezeBtn" data-hold="freeze"><span class="hold-fill"></span><span class="hold-label"></span></button>
+          <button class="cue hold dark-hold" id="finaleBtn" data-hold="finale"><span class="hold-fill"></span><span class="hold-label">🏁 Telefoni al FINALE (tieni premuto)</span></button>
+        </div>
+        <div class="cue-group">
+          <h3>Generazioni in sala (dal vivo)</h3>
+          <div id="genList" class="gen-list"></div>
+        </div>
+      </aside>
+
+      <section class="col zone-live">
+        <h2 id="liveTitle">Reazioni del pubblico</h2>
+        <div id="livePanel"></div>
+
+        <h2 class="mt">Punti</h2>
+        <div id="scoreTable"></div>
+        <h3>Voto Sugarfree (+<span id="sfBonus"></span>)</h3>
+        <div id="sfBox"></div>
+        <h3>Correzione manuale</h3>
+        <form id="adjForm" class="adj">
+          <select id="adjTarget"></select>
+          <input id="adjDelta" type="number" step="1" placeholder="±punti" required>
+          <button class="tbtn">Applica</button>
+        </form>
+        <ul id="adjList" class="adj-list"></ul>
+      </section>
+
+      <aside class="col zone-led">
+        <h2 class="zone-title">🖥 LED wall</h2>
+        <p class="muted">1. Prepara una scena · 2. Controllala in anteprima · 3. Pubblicala sulla pagina LED. Quando mandarla in onda lo decide il tecnico.</p>
+        <div id="sceneBtns" class="scene-btns"></div>
+        <div class="scene-legend"><span class="lp">in anteprima</span><span class="lg">sulla pagina LED</span></div>
+        <h3>Anteprima <span class="muted">(la vedi solo tu)</span></h3>
+        <canvas id="previewCv" class="preview" width="1920" height="1080"></canvas>
+        <p id="previewInfo" class="muted"></p>
+        <button id="publishBtn" class="publish hold" data-hold="publish"><span class="hold-fill"></span><span class="hold-label">PUBBLICA SUL LED ▶</span></button>
+        <h3>Sulla pagina LED adesso</h3>
+        <canvas id="programCv" class="preview program" width="1920" height="1080"></canvas>
+        <p id="programInfo" class="muted"></p>
+        <div class="row wrap">
+          <button class="tbtn" id="pngBtn">⬇︎ PNG di ciò che è sul LED</button>
+          <a class="tbtn" id="screenLink" target="_blank">Apri pagina LED ↗</a>
+        </div>
+        <details class="danger-zone">
+          <summary>Zona pericolosa</summary>
+          <button class="tbtn danger" id="resetBtn">Azzera questo show</button>
+        </details>
+      </aside>
+    </main>
+    <footer class="logbar"><ol id="log"></ol></footer>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/socket.io/socket.io.min.js"></script>
+  <script type="module" src="/js/regia.js"></script>
+</body>
+</html>

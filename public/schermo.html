@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cult Pop LIVE · LED</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <style>
+    html, body { height: 100%; margin: 0; background: #000; overflow: hidden; cursor: none; }
+    body.trasparente { background: transparent; }
+    canvas { position: absolute; inset: 0; margin: auto; max-width: 100vw; max-height: 100vh; }
+    #help { position: fixed; bottom: 10px; left: 10px; color: #fff; font: 700 13px var(--font); background: rgba(0,0,0,.7); padding: 8px 12px; border-radius: 6px; display: none; cursor: default; line-height: 1.5; }
+    #help.show { display: block; }
+    #help b { color: #d2fd3a; }
+  </style>
+</head>
+<body>
+  <canvas id="cv"></canvas>
+  <div id="help"></div>
+  <script src="/socket.io/socket.io.min.js"></script>
+  <script type="module">
+    // Pagina per il LED wall: il tecnico la carica come sorgente web (o la mostra a tutto schermo da un portatile).
+    // Mostra SOLO ciò che la regia ha pubblicato. Se la connessione cade, resta l'ultima immagine (nessun avviso visibile in onda).
+    import { drawScene, prepareAssets, downloadPng } from '/js/led.js';
+    const q = new URLSearchParams(location.search);
+    const size = { width: Number(q.get('w')) || 1920, height: Number(q.get('h')) || 1080 };
+    const transparent = q.get('trasparente') === '1';
+    if (transparent) document.body.classList.add('trasparente');
+    const cv = document.getElementById('cv');
+    const env = { config: null, qr: null, now: () => Date.now() + offset, closedSeenAt: null };
+    let scene = null, sceneKey = '', sceneStart = performance.now(), offset = 0, connected = false;
+
+    const socket = io('/schermo', { auth: { key: q.get('key'), show: q.get('show') || 'live' }, reconnectionDelayMax: 3000 });
+    socket.on('screen', async (msg) => {
+      if (msg.serverNow) offset = msg.serverNow - Date.now();
+      if (msg.config || msg.qr) {
+        env.config = msg.config || env.config;
+        env.qr = msg.qr || env.qr;
+        await prepareAssets(env.config, env.qr);
+      }
+      const p = msg.state?.program;
+      if (!p) return;
+      const key = `${p.type}:${p.publishedAt || p.t}:${p.runId || ''}`;
+      if (key !== sceneKey) { sceneKey = key; sceneStart = performance.now(); env.closedSeenAt = null; }
+      scene = p;
+    });
+    socket.on('connect', () => { connected = true; help(); });
+    socket.on('disconnect', () => { connected = false; help(); });
+    socket.on('connect_error', (e) => { connected = false; help(e.message); });
+
+    let last = 0;
+    function frame(now) {
+      requestAnimationFrame(frame);
+      if (now - last < 33) return; // ~30 fotogrammi al secondo bastano e risparmiano il computer della regia
+      last = now;
+      if (!env.config) return;
+      drawScene(cv, scene, env, { ...size, el: now - sceneStart, transparent });
+    }
+    requestAnimationFrame(frame);
+
+    function help(err) {
+      document.getElementById('help').innerHTML =
+        `<b>Cult Pop LIVE · pagina LED</b><br>Connessione: ${connected ? 'OK' : 'ASSENTE' + (err ? ' (' + err + ')' : '')}<br>` +
+        `Risoluzione: ${size.width}×${size.height}${transparent ? ' · sfondo trasparente' : ''}<br>` +
+        `Tasti: H aiuto · F schermo intero · P scarica PNG`;
+    }
+    help();
+    addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'f') document.documentElement.requestFullscreen?.();
+      if (k === 'p') downloadPng(cv);
+      if (k === 'h') document.getElementById('help').classList.toggle('show');
+    });
+  </script>
+</body>
+</html>

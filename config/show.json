@@ -1,0 +1,351 @@
+{
+  "_nota": "DATI FITTIZI. Sostituire nomi, foto, domande, profili e SOS con i contenuti definitivi. Il server valida questo file all'avvio e si rifiuta di partire se qualcosa non torna.",
+  "show": {
+    "titolo": "Millennial spiegati ai Gen Z",
+    "sottotitolo": "Rom-Com anni 2000 · Milano Music Week 2026",
+    "instagramUrl": "https://www.instagram.com/cultpop/",
+    "instagramHandle": "@cultpop",
+    "regole": [
+      "Scegli un Gen Z toccando la sua foto",
+      "Reagisci con le emoji: ognuna dà o toglie punti",
+      "Tieni il telefono a portata di mano: i Gen Z potrebbero chiederti aiuto!"
+    ],
+    "titoloBreve": "Le Rom-Com anni 2000 spiegate ai Gen Z",
+    "promo": {
+      "titolo": "Sei tu a decidere chi vincerà",
+      "testo": "Inquadra il QR e vota per tutta la puntata"
+    },
+    "testoLed": "Millennial spiegati ai Gen Z · Rom-Com anni 2000",
+    "gifVotiChiusi": "img/voti-chiusi.webp",
+    "seguici": "Non ti libererai di noi così facilmente: seguici su Instagram e continua la festa.",
+    "votazioniChiuse": {
+      "titolo": "Votazioni chiuse",
+      "testo": "Grazie per aver votato! Ora la parola agli Sugarfree… il verdetto arriva sul LED."
+    }
+  },
+  "coppie": [
+    {
+      "id": "t1",
+      "nome": "Coppia Lime",
+      "colore": "#D2FD3A"
+    },
+    {
+      "id": "t2",
+      "nome": "Coppia Fucsia",
+      "colore": "#FD7DFF"
+    },
+    {
+      "id": "t3",
+      "nome": "Coppia Turchese",
+      "colore": "#3CBF9E"
+    }
+  ],
+  "concorrenti": [
+    {
+      "id": "c1",
+      "nome": "Giulia",
+      "coppia": "t1",
+      "foto": "img/concorrenti/c1.svg"
+    },
+    {
+      "id": "c2",
+      "nome": "Matteo",
+      "coppia": "t1",
+      "foto": "img/concorrenti/c2.svg"
+    },
+    {
+      "id": "c3",
+      "nome": "Sofia",
+      "coppia": "t2",
+      "foto": "img/concorrenti/c3.svg"
+    },
+    {
+      "id": "c4",
+      "nome": "Leo",
+      "coppia": "t2",
+      "foto": "img/concorrenti/c4.svg"
+    },
+    {
+      "id": "c5",
+      "nome": "Aurora",
+      "coppia": "t3",
+      "foto": "img/concorrenti/c5.svg"
+    },
+    {
+      "id": "c6",
+      "nome": "Kevin",
+      "coppia": "t3",
+      "foto": "img/concorrenti/c6.svg"
+    }
+  ],
+  "reazioni": {
+    "emoji": [
+      {
+        "id": "ride",
+        "simbolo": "😂",
+        "punti": 2
+      },
+      {
+        "id": "cuore",
+        "simbolo": "❤️",
+        "punti": 1
+      },
+      {
+        "id": "imbarazzo",
+        "simbolo": "😬",
+        "punti": -1
+      },
+      {
+        "id": "rabbia",
+        "simbolo": "😡",
+        "punti": -2
+      }
+    ],
+    "rateLimit": {
+      "reazioniValide": 3,
+      "finestraSecondi": 10
+    }
+  },
+  "punteggi": {
+    "quiz": {
+      "domandePerCoppia": 3,
+      "puntiPerRisposta": 10,
+      "maxPerCoppia": 30
+    },
+    "pubblico": {
+      "premi": [
+        30,
+        20,
+        10
+      ],
+      "parita": "media",
+      "_parita_opzioni": "media = le coppie a pari merito si dividono i premi delle posizioni occupate (es. pari al 1° posto: 25 e 25). alto = tutte ricevono il premio della posizione migliore."
+    },
+    "sugarfree": {
+      "bonus": 25
+    },
+    "spareggioFinale": [
+      "quiz",
+      "pubblico"
+    ],
+    "_spareggio_nota": "Se due coppie hanno lo stesso totale, si confrontano in ordine i punti quiz e poi i punti pubblico. Se resta la parità: ex aequo."
+  },
+  "annoNascita": {
+    "min": 1928,
+    "predefinito": 2000
+  },
+  "_generazioni_nota": "Ogni persona riceve UNA generazione: se l'anno ricade in più intervalli vince quello più stretto (es. 1995 = Zillennial, non Millennial). L'immagine ideale è quadrata 1080x1080 px, webp o png, max 300 KB.",
+  "generazioni": [
+    {
+      "id": "silenziosa",
+      "nome": "Generazione Silenziosa",
+      "da": 1928,
+      "a": 1945,
+      "testo": "La tua quote preferita: «Si stava meglio quando si stava peggio».",
+      "colore": "#c6d3dc",
+      "immagine": "img/generazioni/silenziosa.webp"
+    },
+    {
+      "id": "boomer",
+      "nome": "Boomer",
+      "da": 1946,
+      "a": 1964,
+      "testo": "Il tuo linguaggio dell’amore è un buongiornissimo kaffè mandato a 47 gruppi WhatsApp.",
+      "colore": "#fbcf2c",
+      "immagine": "img/generazioni/boomer.webp"
+    },
+    {
+      "id": "x",
+      "nome": "Gen X",
+      "da": 1965,
+      "a": 1980,
+      "testo": "Hai riavvolto le cassette con una Bic. Onestamente, non hai paura di niente.",
+      "colore": "#ff9f1c",
+      "immagine": "img/generazioni/x.webp"
+    },
+    {
+      "id": "millennial",
+      "nome": "Millennial",
+      "da": 1981,
+      "a": 1996,
+      "testo": "Hai avuto un’infanzia meravigliosa. Poi sei diventato adulto ed è andato tutto a rotoli. Da allora vivi di nostalgia e sigle dei cartoni animati.",
+      "colore": "#fd7dff",
+      "immagine": "img/generazioni/millennial.webp"
+    },
+    {
+      "id": "zillennial",
+      "nome": "Zillennial",
+      "da": 1993,
+      "a": 1998,
+      "testo": "Sei troppo giovane per sentirti Millennial e troppo vecchio per sentirti Gen Z. Sai solo quello che non sei.",
+      "colore": "#8a2bf8",
+      "immagine": "img/generazioni/zillennial.webp"
+    },
+    {
+      "id": "genz",
+      "nome": "Gen Z",
+      "da": 1997,
+      "a": 2012,
+      "testo": "Il mondo sta esplodendo, ma almeno tu sei venuto bene in foto.",
+      "colore": "#d2fd3a",
+      "immagine": "img/generazioni/genz.webp"
+    },
+    {
+      "id": "alpha",
+      "nome": "Gen Alpha",
+      "da": 2013,
+      "a": 2024,
+      "testo": "Sei un iPad kid. I tuoi genitori hanno già 700 foto imbarazzanti di te che un giorno farai di tutto per cancellare.",
+      "colore": "#3cbf9e",
+      "immagine": "img/generazioni/alpha.webp"
+    },
+    {
+      "id": "beta",
+      "nome": "Gen Beta",
+      "da": 2025,
+      "a": 2039,
+      "testo": "Se ti è uscita questa generazione, probabilmente sei un boomer che ha sbagliato a inserire la data di nascita.",
+      "colore": "#ff4d5e",
+      "immagine": "img/generazioni/beta.webp"
+    }
+  ],
+  "sos": [
+    {
+      "id": "sos1",
+      "domanda": "[DEMO] Domanda SOS n.1 sugli Sugarfree (da sostituire)",
+      "opzioni": [
+        "Opzione A",
+        "Opzione B",
+        "Opzione C",
+        "Opzione D"
+      ],
+      "corretta": 1,
+      "durataSecondi": 30
+    },
+    {
+      "id": "sos2",
+      "domanda": "[DEMO] Domanda SOS n.2 sugli Sugarfree (da sostituire)",
+      "opzioni": [
+        "Opzione A",
+        "Opzione B",
+        "Opzione C",
+        "Opzione D"
+      ],
+      "corretta": 3,
+      "durataSecondi": 30
+    },
+    {
+      "id": "sos3",
+      "domanda": "[DEMO] Domanda SOS n.3 sugli Sugarfree (da sostituire)",
+      "opzioni": [
+        "Opzione A",
+        "Opzione B",
+        "Opzione C",
+        "Opzione D"
+      ],
+      "corretta": 0,
+      "durataSecondi": 30
+    }
+  ],
+  "domandeAB": [
+    {
+      "id": "ab1",
+      "testo": "Primo appuntamento: dove lo porti?",
+      "A": {
+        "testo": "Cena a lume di candela",
+        "profili": {
+          "romantica": 2,
+          "gesto": 1
+        }
+      },
+      "B": {
+        "testo": "Karaoke con tutta la compagnia",
+        "profili": {
+          "bestie": 2,
+          "cinico": 1
+        }
+      }
+    },
+    {
+      "id": "ab2",
+      "testo": "Il tuo crush ti scrive alle 2 di notte",
+      "A": {
+        "testo": "Rispondo in 3 secondi",
+        "profili": {
+          "romantica": 1,
+          "gesto": 2
+        }
+      },
+      "B": {
+        "testo": "Visualizzo e rispondo domattina",
+        "profili": {
+          "cinico": 2,
+          "bestie": 1
+        }
+      }
+    },
+    {
+      "id": "ab3",
+      "testo": "La colonna sonora del tuo cuore è…",
+      "A": {
+        "testo": "Una ballad strappalacrime",
+        "profili": {
+          "romantica": 2,
+          "cinico": 1
+        }
+      },
+      "B": {
+        "testo": "Il tormentone dell'estate",
+        "profili": {
+          "bestie": 1,
+          "gesto": 2
+        }
+      }
+    },
+    {
+      "id": "ab4",
+      "testo": "Come ti dichiari?",
+      "A": {
+        "testo": "Gesto plateale sotto la pioggia",
+        "profili": {
+          "gesto": 2,
+          "romantica": 1
+        }
+      },
+      "B": {
+        "testo": "Vocale di 7 minuti alla migliore amica",
+        "profili": {
+          "bestie": 2,
+          "cinico": 1
+        }
+      }
+    }
+  ],
+  "profili": [
+    {
+      "id": "romantica",
+      "titolo": "La Corsa all'Aeroporto",
+      "descrizione": "Credi nel colpo di fulmine e sei pronto a fermare un aereo pur di dire «ti amo». Il finale lo vuoi con il bacio e i titoli di coda.",
+      "colore": "#FD7DFF"
+    },
+    {
+      "id": "cinico",
+      "titolo": "Il Cinico Redento",
+      "descrizione": "Dici di non credere all'amore, ma alla terza canzone lenta crolli. Il tuo arco narrativo è il migliore del film.",
+      "colore": "#3CBF9E"
+    },
+    {
+      "id": "bestie",
+      "titolo": "La Migliore Amica che Sa Tutto",
+      "descrizione": "Consigli d'oro, battute perfette e piani B. Senza di te la protagonista non arriverebbe mai al lieto fine.",
+      "colore": "#D2FD3A"
+    },
+    {
+      "id": "gesto",
+      "titolo": "Il Re del Gesto Plateale",
+      "descrizione": "Cartelli, serenate, stereo sopra la testa: per te l'amore è uno show e il pubblico deve applaudire.",
+      "colore": "#FBCF2C"
+    }
+  ],
+  "_domandeAB_nota": "Le domande A/B non sono più nello show: formano il quiz «Che Rom-Com sei?» che ognuno fa da solo nel finale."
+}

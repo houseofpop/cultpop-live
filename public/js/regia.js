@@ -1,0 +1,310 @@
+// Control Room. Ogni pulsante invia un comando al server; lo stato mostrato è sempre quello del server.
+// Tre zone: TELEFONI (cosa vede il pubblico), LIVE + PUNTI, LED (anteprima → pubblica).
+import { drawScene, prepareAssets, downloadPng, SCENE_LABEL } from './led.js';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const L = 'ABCDEFGH';
+const ss = { get: (k) => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch { /* */ } } };
+const hhmm = (t) => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+// Aggiorna il DOM sul posto: un clic dell'operatore non va mai perso perché il pulsante è stato ricreato.
+function morph(el, html) {
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  syncChildren(el, t.content);
+}
+function syncChildren(a, b) {
+  const an = [...a.childNodes], bn = [...b.childNodes];
+  bn.forEach((y, i) => {
+    const x = an[i];
+    if (!x) return a.appendChild(y);
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName) return a.replaceChild(y, x);
+    if (x.nodeType !== 1) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; return; }
+    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
+    for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+    if ('disabled' in x) x.disabled = y.hasAttribute('disabled');
+    syncChildren(x, y);
+  });
+  for (let i = an.length - 1; i >= bn.length; i--) a.removeChild(an[i]);
+}
+
+let socket = null, cfg = null, pub = null, qrs = {}, A = null, screenKey = '', offset = 0;
+let show = ss.get('cp_regia_show') || 'prova'; // per sicurezza si parte dalla PROVA
+const envFor = () => ({ config: pub, qr: qrs[A?.showId || show], now: () => Date.now() + offset });
+
+$('loginForm').onsubmit = (e) => { e.preventDefault(); connect($('pw').value); };
+if (ss.get('cp_regia_pw')) connect(ss.get('cp_regia_pw'));
+
+function connect(password) {
+  socket?.disconnect();
+  socket = io('/regia', { auth: { password, show }, reconnectionDelayMax: 3000 });
+  socket.on('connect_error', (e) => {
+    if (/password|tentativi/.test(e.message)) { $('loginErr').textContent = e.message; $('login').classList.remove('hidden'); $('room').classList.add('hidden'); socket.disconnect(); }
+    $('connDot').classList.add('off');
+  });
+  socket.on('connect', () => { ss.set('cp_regia_pw', password); $('login').classList.add('hidden'); $('room').classList.remove('hidden'); $('connDot').classList.remove('off'); });
+  socket.on('disconnect', () => { $('connDot').classList.add('off'); toast('Regia disconnessa dal server: riconnessione…', true); });
+  socket.on('admin:init', async (m) => {
+    cfg = m.config; pub = m.pubConfig; screenKey = m.screenKey; qrs = m.qr || {};
+    buildStatic();
+    await prepareAssets(pub, qrs.live);
+    await prepareAssets(pub, qrs.prova);
+    lastPrev = lastProg = '';
+    if (A) render();
+  });
+  socket.on('admin:state', (s) => { A = s; offset = s.serverNow - Date.now(); render(); });
+  socket.on('admin:connected', (n) => { if (A) { A.connected = n; $('connected').textContent = n; } });
+}
+
+function cmd(type, args = {}, confirmMsg) {
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  socket.timeout(5000).emit('cmd', { type, args }, (err, res) => {
+    if (err) toast('Nessuna risposta dal server!', true);
+    else if (!res.ok) toast(res.error, true);
+  });
+}
+
+let toastT;
+function toast(msg, bad = false) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'toast' + (bad ? ' err' : '');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hidden'), 3500);
+}
+
+// ---------- pressione prolungata per le azioni delicate (niente popup) ----------
+const HOLD_ACTIONS = {
+  finale: { ms: 1200, run: () => cmd('finale') },
+  freeze: { ms: 1200, run: () => cmd('freeze', { frozen: !A.audienceFrozen }) },
+  publish: { ms: () => (A?.led?.preview?.type === 'verdetto' ? 2000 : 0), run: () => cmd('ledPublish') },
+};
+function setupHold() {
+  let timer = null, btn = null, firedAt = 0;
+  const cancel = () => { clearTimeout(timer); timer = null; btn?.classList.remove('holding'); btn = null; };
+  document.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('[data-hold]');
+    if (!b || b.disabled) return;
+    const a = HOLD_ACTIONS[b.dataset.hold];
+    const ms = typeof a.ms === 'function' ? a.ms() : a.ms;
+    if (!ms) return; // nessuna attesa: gestito dal click
+    e.preventDefault();
+    btn = b;
+    b.style.setProperty('--hold-ms', `${ms}ms`);
+    b.classList.add('holding');
+    timer = setTimeout(() => { a.run(); firedAt = Date.now(); cancel(); }, ms);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => document.addEventListener(ev, (e) => { if (btn && (ev !== 'pointerleave' || e.target === btn)) cancel(); }, true));
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-hold]');
+    if (!b || b.disabled) return;
+    const a = HOLD_ACTIONS[b.dataset.hold];
+    const ms = typeof a.ms === 'function' ? a.ms() : a.ms;
+    if (!ms) a.run();
+    else if (!b.classList.contains('holding') && Date.now() - firedAt > 600) toast('Tieni premuto per confermare');
+  });
+}
+
+// ---------- parti statiche ----------
+function buildStatic() {
+  document.querySelectorAll('.sw').forEach((b) => (b.onclick = () => {
+    if (b.dataset.show === show) return;
+    if (b.dataset.show === 'live' && !confirm('Passare allo show LIVE (quello reale)?')) return;
+    show = b.dataset.show; ss.set('cp_regia_show', show);
+    lastPrev = lastProg = '';
+    socket.emit('switchShow', show);
+  }));
+  $('openBtn').onclick = () => cmd('open', { open: !A.open }, A.open ? 'Chiudere la sessione? I telefoni torneranno in attesa.' : null);
+  $('lockBtn').onclick = () => cmd('lock', { locked: !A.reactionsLocked });
+  $('backBtn').onclick = () => cmd('reactions');
+  $('pngBtn').onclick = () => downloadPng($('programCv'), `cultpop-led-${new Date().toTimeString().slice(0, 8).replace(/:/g, '')}.png`);
+  $('resetBtn').onclick = () => {
+    if (show === 'live') { const c = prompt('Stai per AZZERARE LO SHOW LIVE. Scrivi: AZZERA LIVE'); if (c) cmd('reset', { confirm: c }); }
+    else cmd('reset', {}, 'Azzerare lo show di PROVA?');
+  };
+  $('sfBonus').textContent = cfg.punteggi.sugarfree.bonus;
+  $('adjTarget').innerHTML = cfg.coppie.map((t) => `<option value="${esc(t.id)}">Coppia: ${esc(t.nome)}</option>`).join('')
+    + cfg.concorrenti.map((c) => `<option value="${esc(c.id)}">Gen Z: ${esc(c.nome)}</option>`).join('');
+  $('adjForm').onsubmit = (e) => {
+    e.preventDefault();
+    cmd('adjAdd', { target: $('adjTarget').value, delta: Number($('adjDelta').value) });
+    $('adjDelta').value = '';
+  };
+  if (!window.__regiaDelegated) {
+    window.__regiaDelegated = true;
+    setupHold();
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-sos],button[data-q],button[data-sf],button[data-del],button[data-act],button[data-scene]');
+      if (!b || b.disabled || !A) return;
+      const d = b.dataset;
+      if (d.sos) {
+        const used = A.sosUsed[d.team];
+        const def = cfg.sos.find((s) => s.id === d.sos);
+        cmd('sosStart', { sosId: d.sos, teamId: d.team, alsoLed: $('sosLed').checked }, used ? `⚠️ ${teamName(d.team)} ha GIÀ usato il suo SOS. Avviarlo comunque?` : `Avviare SOS (${def.durataSecondi}s) per ${teamName(d.team)}${$('sosLed').checked ? ' — anche sul LED' : ''}?`);
+      } else if (d.q) cmd('quiz', { teamId: d.q, idx: Number(d.i), correct: d.on !== 'true' });
+      else if (d.sf !== undefined) cmd('sugarfree', { teamId: d.sf || null });
+      else if (d.del) cmd('adjDel', { id: d.del }, 'Annullare questa correzione?');
+      else if (d.scene) cmd('ledPrepare', { type: d.scene });
+      else if (d.act === 'back') cmd('reactions');
+      else if (d.act === 'sosClose') cmd('sosClose', {}, 'Chiudere subito il voto SOS?');
+      else if (d.act === 'sosReveal') cmd('sosReveal');
+      else if (d.act === 'sosToLed') { cmd('ledPrepare', { type: 'sos' }); }
+      else if (d.act === 'sfLock') cmd('sugarfreeLock', { locked: true }, `Confermare il voto Sugarfree per ${teamName(A.sugarfree)}? Dopo non si potrà cambiare senza sbloccarlo.`);
+      else if (d.act === 'sfUnlock') cmd('sugarfreeLock', { locked: false }, 'Sbloccare il voto Sugarfree?');
+    });
+  }
+}
+
+// ---------- render ----------
+const teamName = (id) => cfg.coppie.find((t) => t.id === id)?.nome || id;
+const contName = (id) => cfg.concorrenti.find((c) => c.id === id)?.nome || id;
+const modeLabel = { attesa: 'In attesa', reazioni: 'Reazioni', sos: 'SOS', finale: 'Finale' };
+
+function render() {
+  if (!cfg || !A) return;
+  document.querySelectorAll('.sw').forEach((b) => b.classList.toggle('on', b.dataset.show === A.showId));
+  $('topbar').classList.toggle('prova', A.showId === 'prova');
+  $('connected').textContent = A.connected;
+  $('modePill').textContent = A.open || A.mode === 'finale' ? modeLabel[A.mode] : 'Sessione chiusa';
+  const prog = A.led.program;
+  $('ledPill').textContent = prog ? `${SCENE_LABEL[prog.type]}${prog.publishedAt ? ' · ' + hhmm(prog.publishedAt) : ''}` : '—';
+  $('openBtn').textContent = A.open ? '⏹ Chiudi sessione' : '▶︎ Apri sessione';
+  $('openBtn').className = 'tbtn ' + (A.open ? '' : 'warn');
+  $('lockBtn').textContent = A.reactionsLocked ? '🔓 Sblocca reazioni' : '🔒 Blocca reazioni';
+  $('lockBtn').className = 'tbtn ' + (A.reactionsLocked ? 'warn' : '');
+  $('freezeBtn').querySelector('.hold-label').textContent = A.audienceFrozen ? '🔓 Riapri voti pubblico (tieni premuto)' : '🔒 CHIUDI VOTAZIONI (tieni premuto)';
+
+  // SOS
+  const sosRunning = A.sos && !A.sos.closed;
+  morph($('sosCues'), cfg.sos.map((s, i) => `
+    <div class="sos-cue"><p>${i + 1}. ${esc(s.domanda)}</p>
+      <div class="row">${cfg.coppie.map((t) => `<button class="team-btn ${A.sosUsed[t.id] ? 'used' : ''}" style="background:${esc(t.colore)}" data-sos="${esc(s.id)}" data-team="${esc(t.id)}" ${sosRunning ? 'disabled' : ''} title="Avvia SOS per ${esc(t.nome)}">${esc(t.nome.replace('Coppia ', ''))}</button>`).join('')}</div>
+    </div>`).join(''));
+
+  // generazioni dal vivo
+  const gs = A.genStats;
+  morph($('genList'), (cfg.generazioni || []).filter((g) => gs.counts[g.id]).map((g) => `<div><span><i style="background:${esc(g.colore)}"></i>${esc(g.nome)}</span><b>${gs.counts[g.id]} · ${Math.round((gs.counts[g.id] / gs.total) * 100)}%</b></div>`).join('') || '<p class="muted">Ancora nessuno ha inserito l\'anno.</p>');
+
+  renderLive();
+  renderScores();
+  renderLed();
+  morph($('log'), A.log.map((l) => `<li><time>${new Date(l.t).toLocaleTimeString('it-IT')}</time>${esc(l.msg)}</li>`).join(''));
+}
+
+let timerInt = null;
+function renderLive() {
+  clearInterval(timerInt);
+  const P = $('livePanel');
+  if (A.mode === 'sos' && A.sos) return renderSosPanel(P);
+  $('liveTitle').textContent = A.mode === 'finale' ? 'Finale in corso' : 'Reazioni del pubblico';
+  const em = cfg.reazioni.emoji;
+  const rows = cfg.concorrenti.map((c) => {
+    const r = A.reactions[c.id];
+    const team = cfg.coppie.find((t) => t.id === c.coppia);
+    return `<tr><td><span class="sw-chip" style="background:${esc(team.colore)}"></span>${esc(c.nome)}</td>
+      ${em.map((e) => `<td title="validi / tap totali">${r.valid[e.id]}<small style="opacity:.5"> /${r.raw[e.id]}</small></td>`).join('')}
+      <td class="pts">${r.points}</td></tr>`;
+  }).join('');
+  const taps = cfg.concorrenti.reduce((s, c) => s + A.reactions[c.id].taps, 0);
+  morph(P, `
+    <div class="kpis">
+      <div class="kpi">Connessi<b>${A.connected}</b></div>
+      <div class="kpi">Hanno inserito l'anno<b>${A.genStats.total}</b></div>
+      <div class="kpi">Tap totali<b>${taps}</b></div>
+    </div>
+    ${A.reactionsLocked ? '<p class="result tie">Reazioni BLOCCATE</p>' : ''}
+    ${A.audienceFrozen ? '<p class="result tie">Voti del pubblico CHIUSI: punti congelati</p>' : ''}
+    <table class="rx-table"><thead><tr><th>Gen Z</th>${em.map((e) => `<th>${e.simbolo} ${e.punti > 0 ? '+' : ''}${e.punti}</th>`).join('')}<th>Punti</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="muted">Reazioni valide / tap totali. Limite: ${cfg.reazioni.rateLimit.reazioniValide} reazioni valide ogni ${cfg.reazioni.rateLimit.finestraSecondi}s per persona.</p>`);
+}
+
+function renderSosPanel(P) {
+  const s = A.sos;
+  const def = cfg.sos.find((x) => x.id === s.sosId);
+  const tot = s.voters || 1;
+  const top = s.result?.top || [];
+  const onLed = A.led.program?.type === 'sos' && A.led.program.runId === s.runId;
+  $('liveTitle').textContent = `SOS · ${teamName(s.teamId)}`;
+  morph(P, `
+    <div class="row" style="justify-content:space-between"><div class="big-timer" id="sosTimer">${s.closed ? 'CHIUSO' : Math.ceil(Math.max(0, s.endsAt - (Date.now() + offset)) / 1000) + 's'}</div><div><b>${s.voters}</b> voti · ${A.connected} connessi<br><span class="muted">${onLed ? '🖥 Sul LED: countdown e poi percentuali' : '🖥 NON è sul LED'}</span></div></div>
+    <p class="q-big">${esc(def.domanda)}</p>
+    <div class="bars">${def.opzioni.map((o, i) => `<div class="bar ${i === def.corretta ? 'correct' : ''} ${top.includes(i) ? 'top' : ''}"><i style="width:${(s.counts[i] / tot) * 100}%"></i><span><span>${L[i]}. ${esc(o)} ${i === def.corretta ? '✅' : ''}</span><span>${s.counts[i]} · ${Math.round((s.counts[i] / tot) * 100)}%</span></span></div>`).join('')}</div>
+    <p class="muted">✅ = risposta corretta (visibile solo in regia). Sul LED le percentuali compaiono solo a voto chiuso.</p>
+    ${s.closed ? `<div class="result ${s.result.tie ? 'tie' : ''}">${!top.length ? 'Nessun voto ricevuto' : s.result.tie ? `PARITÀ tra ${top.map((i) => L[i]).join(' e ')} (${s.result.max} voti ciascuna): il pubblico è diviso` : `Il pubblico suggerisce: ${L[top[0]]}. ${esc(def.opzioni[top[0]])} (${Math.round((s.result.max / tot) * 100)}%)`}</div>
+      <div class="row wrap" style="margin-top:10px">
+        ${!onLed ? '<button class="tbtn" data-act="sosToLed">Prepara i risultati per il LED</button>' : ''}
+        ${s.revealed ? '<span class="muted">Risposta corretta già rivelata sul LED</span>' : `<button class="tbtn warn" data-act="sosReveal">Rivela risposta corretta (${L[def.corretta]}) sul LED</button>`}
+        <button class="tbtn big" data-act="back">↩ Telefoni su Reazioni</button>
+      </div>`
+      : `<button class="tbtn danger" data-act="sosClose">Chiudi ora il voto</button>`}`);
+  const tick = () => {
+    const el = $('sosTimer');
+    if (!el) return clearInterval(timerInt);
+    el.textContent = s.closed ? 'CHIUSO' : `${Math.ceil(Math.max(0, s.endsAt - (Date.now() + offset)) / 1000)}s`;
+  };
+  if (!s.closed) timerInt = setInterval(tick, 200);
+}
+
+function renderScores() {
+  const st = A.standings;
+  const Q = cfg.punteggi.quiz;
+  const byId = Object.fromEntries(st.coppie.map((t) => [t.id, t]));
+  morph($('scoreTable'), `<table class="score-table"><thead><tr><th>Coppia</th><th>Quiz (risposte giuste)</th><th>Reaz.</th><th>Pubbl.</th><th>SF</th><th>Corr.</th><th>Tot</th></tr></thead><tbody>
+    ${cfg.coppie.map((t) => {
+      const s = byId[t.id];
+      const ind = st.individui.filter((i) => i.coppia === t.id).map((i) => `${esc(i.nome)} ${i.punti}`).join(' · ');
+      const answers = A.quiz[t.id] || [];
+      return `<tr><td><span class="sw-chip" style="background:${esc(t.colore)}"></span><b>${esc(t.nome)}</b><div class="indiv">${ind}</div></td>
+        <td><span class="qbtns">${answers.map((on, i) => `<button data-q="${esc(t.id)}" data-i="${i}" data-on="${on}" aria-pressed="${on}" title="Domanda ${i + 1}">D${i + 1}</button>`).join('')}</span> <b>${s.quiz}</b></td>
+        <td>${s.reazioniTotali}</td><td>${s.pubblico}</td><td>${s.sugarfree || ''}</td><td>${s.correzioni || ''}</td><td class="tot">${s.totale}</td></tr>`;
+    }).join('')}
+    </tbody></table>
+    <p class="muted">Classifica privata in tempo reale: ${st.coppie.map((t) => `${t.posizione}°${t.exAequo ? '=' : ''} ${esc(t.nome)}`).join(' · ')}. Ogni D vale ${Q.puntiPerRisposta} punti (max ${Q.maxPerCoppia}).</p>`);
+
+  const locked = A.sugarfreeLocked;
+  morph($('sfBox'), `
+    <div class="sf-row">${cfg.coppie.map((t) => `<button class="sf-btn ${A.sugarfree === t.id ? 'on' : ''}" style="--team:${esc(t.colore)}" data-sf="${esc(t.id)}" ${locked ? 'disabled' : ''} aria-pressed="${A.sugarfree === t.id}"><i></i>${A.sugarfree === t.id ? '★ ' : ''}${esc(t.nome)}</button>`).join('')}</div>
+    ${A.sugarfree && !locked ? '<button class="sf-clear" data-sf="">Annulla scelta</button>' : ''}
+    <p class="sf-state ${locked ? 'ok' : ''}">${!A.sugarfree ? 'Seleziona la coppia scelta dagli Sugarfree.' : locked ? `✔ Confermato: ${esc(teamName(A.sugarfree))}. Ora puoi preparare il verdetto nella zona LED.` : `Scelta: ${esc(teamName(A.sugarfree))} (non ancora confermata)`}</p>
+    ${A.sugarfree && !locked ? '<button class="tbtn confirm" data-act="sfLock">✔ Conferma voto Sugarfree</button>' : ''}
+    ${locked ? `<button class="tbtn" data-act="sfUnlock" ${A.verdictPublished ? 'disabled' : ''}>Sblocca</button>` : ''}`);
+
+  morph($('adjList'), A.adjustments.map((a) => `<li><span><b>${a.delta > 0 ? '+' : ''}${a.delta}</b> ${esc(a.kind === 'team' ? teamName(a.target) : contName(a.target))}${a.reason ? ': ' + esc(a.reason) : ''} <span class="muted">${hhmm(a.t)}</span></span><button data-del="${esc(a.id)}" title="Annulla">✕</button></li>`).join(''));
+}
+
+let lastPrev = '', lastProg = '', ledTimer = null;
+function sceneSig(sc) { return sc ? JSON.stringify([sc.type, sc.t, sc.publishedAt, sc.runId, sc.sos && [sc.sos.closed, sc.sos.voters, sc.sos.corretta]]) : ''; }
+function renderLed() {
+  const { preview, program } = A.led;
+  const hasSos = !!(A.sos);
+  const scenes = [
+    ['promo', '📣 Promemoria QR'],
+    ['classifica', '🏆 Classifica provvisoria'],
+    ['generazioni', '👶 Generazioni in sala'],
+    ['sos', '🆘 Risultati SOS'],
+    ['chiuse', '🔒 Votazioni chiuse'],
+    ['verdetto', '👑 Verdetto finale'],
+  ];
+  morph($('sceneBtns'), scenes.map(([k, label]) => {
+    const dis = (k === 'sos' && !hasSos) || (k === 'verdetto' && !A.sugarfreeLocked);
+    const cls = [preview?.type === k ? 'is-preview' : '', program?.type === k ? 'is-program' : ''].join(' ');
+    return `<button data-scene="${k}" class="${cls}" ${dis ? 'disabled' : ''} title="${k === 'verdetto' && !A.sugarfreeLocked ? 'Prima conferma il voto Sugarfree' : 'Prepara in anteprima'}">${label}</button>`;
+  }).join(''));
+  const pubBtn = $('publishBtn');
+  const same = preview && program && sceneSig({ ...preview, publishedAt: undefined }) === sceneSig({ ...program, publishedAt: undefined });
+  pubBtn.disabled = !preview || same;
+  pubBtn.classList.toggle('danger-hold', preview?.type === 'verdetto');
+  pubBtn.querySelector('.hold-label').textContent = !preview ? 'Prepara prima una scena' : same ? 'Già sulla pagina LED ✓' : preview.type === 'verdetto' ? 'PUBBLICA IL VERDETTO (tieni premuto 2 secondi)' : `PUBBLICA SUL LED ▶ ${SCENE_LABEL[preview.type]}`;
+  $('previewInfo').textContent = preview ? `${SCENE_LABEL[preview.type]}, preparata alle ${hhmm(preview.t)}${preview.type === 'classifica' || preview.type === 'generazioni' || preview.type === 'verdetto' ? ' (dati fotografati in quel momento: ripremi per aggiornarli)' : ''}` : 'Nessuna anteprima.';
+  $('programInfo').textContent = program ? `${SCENE_LABEL[program.type]}${program.publishedAt ? ', pubblicata alle ' + hhmm(program.publishedAt) : ''}. Il tecnico la manda in onda quando serve.` : '';
+  $('screenLink').href = `/schermo?key=${encodeURIComponent(screenKey)}&show=${A.showId}`;
+  const sp = sceneSig(preview), sg = sceneSig(program);
+  if (sp !== lastPrev) { lastPrev = sp; if (preview) drawScene($('previewCv'), preview, envFor()); else clearCv($('previewCv')); }
+  if (sg !== lastProg) { lastProg = sg; drawScene($('programCv'), program, envFor()); }
+  clearInterval(ledTimer);
+  const live = [preview, program].some((sc) => sc?.type === 'sos' && sc.sos && !sc.sos.closed);
+  if (live) ledTimer = setInterval(() => {
+    if (preview?.type === 'sos') drawScene($('previewCv'), preview, envFor());
+    if (program?.type === 'sos') drawScene($('programCv'), program, envFor());
+  }, 500);
+}
+function clearCv(cv) { const c = cv.getContext('2d'); c.fillStyle = '#222'; c.fillRect(0, 0, cv.width, cv.height); }

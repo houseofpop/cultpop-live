@@ -1,0 +1,155 @@
+<title>Simulatore Cult Pop LIVE</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&display=swap">
+<style>
+/* Layout: telefono fisso a sinistra, regia o LED a destra; su schermi stretti una vista alla volta (schede). */
+/*__THEME__*/
+/*__APP__*/
+/*__REGIA__*/
+:root { --shell-ink: #17121f; --shell-paper: #d8d6d3; --shell-card: #ffffff; --shell-muted: #4b4553; color-scheme: light; }
+body { background: var(--shell-paper); color: var(--shell-ink); font-family: var(--font); }
+.demo { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 32px; max-width: 1680px; margin: 0 auto; display: grid; gap: 14px; }
+.demo-top { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.demo-top .badge span { font-size: 1.3rem; }
+.demo-title { flex: 1 1 280px; min-width: 0; }
+.demo-title h1 { margin: 0; font-weight: 900; font-size: clamp(1.4rem, 2.6vw, 2.1rem); text-transform: uppercase; line-height: 1; text-wrap: balance; }
+.demo-title p { margin: 6px 0 0; font-weight: 700; color: var(--shell-muted); }
+.demo-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.tool { appearance: none; border: 2px solid var(--shell-ink); background: var(--shell-card); color: var(--shell-ink); font: 800 .85rem var(--font); padding: 9px 12px; border-radius: 10px; cursor: pointer; }
+.tool[aria-pressed="true"] { background: var(--lime); }
+#netBtn[aria-pressed="true"] { background: var(--rosso); color: #fff; }
+.tool:focus-visible, .pane-tab:focus-visible, .guide button:focus-visible { outline: 3px solid var(--viola); outline-offset: 2px; }
+
+.guide { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 18px; align-items: center; background: var(--viola); color: #fff; border: 3px solid var(--shell-ink); border-radius: 16px; padding: 14px 18px; box-shadow: 5px 5px 0 var(--shell-ink); }
+.guide .num { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--lime); }
+.guide h2 { margin: 2px 0 4px; font-size: 1.35rem; font-weight: 900; text-transform: uppercase; }
+.guide p { margin: 0; font-weight: 700; line-height: 1.4; max-width: 75ch; }
+.guide .ctl { display: flex; gap: 8px; }
+.guide button { appearance: none; border: 2px solid var(--shell-ink); border-radius: 10px; font: 900 .95rem var(--font); padding: 12px 16px; cursor: pointer; background: #fff; color: var(--shell-ink); }
+.guide #runStep { background: var(--lime); box-shadow: 3px 3px 0 var(--shell-ink); }
+.guide button:disabled { opacity: .45; cursor: not-allowed; }
+
+.panes { display: flex; gap: 6px; }
+.pane-tab { appearance: none; border: 2px solid var(--shell-ink); background: var(--shell-card); color: var(--shell-ink); font: 900 .9rem var(--font); padding: 9px 14px; border-radius: 10px 10px 0 0; cursor: pointer; text-transform: uppercase; }
+.pane-tab[aria-selected="true"] { background: var(--shell-ink); color: #fff; }
+
+.stage { display: grid; grid-template-columns: 410px minmax(0, 1fr); gap: 20px; align-items: start; }
+.pane-phone { grid-row: 1 / span 2; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; }
+.pane-regia, .pane-led { grid-column: 2; grid-row: 1; min-width: 0; }
+.stage[data-pane="led"] .pane-regia { display: none; }
+.stage:not([data-pane="led"]) .pane-led { display: none; }
+.panes .pane-tab[data-pane-btn="phone"] { display: none; }
+
+.phone { width: 390px; max-width: 100%; height: 800px; border: 12px solid var(--shell-ink); border-radius: 48px; background: var(--shell-ink); position: relative; box-shadow: 8px 10px 0 rgba(23,18,31,.25); }
+.phone-notch { position: absolute; top: 0; left: 50%; width: 120px; height: 24px; margin-left: -60px; background: var(--shell-ink); border-radius: 0 0 16px 16px; z-index: 60; }
+.phone-screen { height: 100%; overflow-y: auto; overflow-x: hidden; border-radius: 36px; scrollbar-width: none; background-attachment: local; }
+.phone-screen::-webkit-scrollbar { display: none; }
+#phoneScreen #app { min-height: 100%; padding-top: 18px; }
+.cap { margin: 0; font-weight: 700; font-size: .9rem; color: var(--shell-muted); text-align: center; max-width: 60ch; }
+
+#regiaRoot { container: regia / inline-size; height: 860px; overflow: auto; border: 3px solid var(--shell-ink); border-radius: 14px; background: #f1efec; position: relative; }
+#regiaRoot .room { height: 100%; }
+#regiaRoot .show-switch, #regiaRoot #screenLink, #regiaRoot .danger-zone { display: none; }
+#regiaRoot .login { min-height: 100%; }
+@container regia (max-width: 1100px) { #regiaRoot .room { height: auto; } }
+@container regia (max-width: 720px) { #regiaRoot .cols { grid-template-columns: minmax(0, 1fr); } #regiaRoot .col { border-right: 0; border-bottom: 2px solid #ddd; } #regiaRoot .kpis { grid-template-columns: 1fr 1fr; } #regiaRoot .live { overflow-x: auto; } }
+
+.led-frame { background: #000; border: 3px solid var(--shell-ink); border-radius: 14px; padding: 10px; }
+#ledCanvas { width: 100%; height: auto; display: block; aspect-ratio: 16 / 9; max-width: 100%; }
+.pane-led .cap { text-align: left; margin-top: 10px; }
+
+.demo-foot { margin: 6px 0 0; font-size: .85rem; font-weight: 600; color: var(--shell-muted); max-width: 100ch; line-height: 1.5; }
+
+#pngOverlay { position: fixed; inset: 0; background: rgba(23,18,31,.85); z-index: 100; display: grid; place-items: center; padding: max(20px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 20px max(16px, env(safe-area-inset-left, 0px)); }
+#pngOverlay[hidden] { display: none; }
+#pngOverlay figure { margin: 0; display: grid; gap: 10px; max-width: min(1100px, 100%); }
+#pngOverlay img { width: 100%; border: 3px solid #fff; border-radius: 8px; }
+#pngOverlay figcaption { color: #fff; font-weight: 700; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+@media (max-width: 1023px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .pane-phone, .pane-regia, .pane-led { grid-column: 1; grid-row: 1; }
+  .stage .pane { display: none !important; }
+  .stage[data-pane="phone"] .pane-phone, .stage[data-pane="regia"] .pane-regia, .stage[data-pane="led"] .pane-led { display: grid !important; }
+  .stage[data-pane="regia"] .pane-regia { display: block !important; }
+  .panes .pane-tab[data-pane-btn="phone"] { display: inline-block; }
+  .guide { grid-template-columns: minmax(0, 1fr); }
+  .phone { height: 740px; }
+  #regiaRoot { height: auto; max-height: none; }
+}
+@media (prefers-reduced-motion: reduce) { .fly, .kid.bump { animation: none !important; } }
+</style>
+
+<div class="demo">
+  <header class="demo-top">
+    <img src="/img/logo.webp" alt="Cult Pop" style="height:84px;width:auto">
+    <div class="demo-title">
+      <h1>Simulatore dello show</h1>
+      <p>Millennial spiegati ai Gen Z · Rom-Com anni 2000 · contenuti di prova · 150 spettatori virtuali più te</p>
+    </div>
+    <div class="demo-tools">
+      <button class="tool" id="botsBtn" aria-pressed="true">Pubblico virtuale: 150 attivi</button>
+      <button class="tool" id="netBtn" aria-pressed="false">Togli la rete al telefono</button>
+      <button class="tool" id="restartBtn">Ricomincia da capo</button>
+    </div>
+  </header>
+
+  <section class="guide" aria-live="polite">
+    <div>
+      <div class="num" id="stepNum"></div>
+      <h2 id="stepTitle"></h2>
+      <p id="stepText"></p>
+    </div>
+    <div class="ctl">
+      <button id="prevStep" aria-label="Passo precedente">◀</button>
+      <button id="runStep"></button>
+    </div>
+  </section>
+
+  <nav class="panes" role="tablist" aria-label="Viste">
+    <button class="pane-tab" role="tab" data-pane-btn="phone">Telefono</button>
+    <button class="pane-tab" role="tab" data-pane-btn="regia">Control Room</button>
+    <button class="pane-tab" role="tab" data-pane-btn="led">LED wall</button>
+  </nav>
+
+  <div class="stage" id="stage" data-pane="regia">
+    <section class="pane pane-phone" aria-label="Telefono dello spettatore">
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="phone-screen paper-bg" id="phoneScreen">
+          <div id="conn" class="conn hidden" role="status" aria-live="polite"></div>
+          <main id="app" aria-live="polite">
+            <div class="center-screen"><div class="badge big"><span>CULT</span><span>POP</span></div><p class="loading">Caricamento…</p></div>
+          </main>
+        </div>
+      </div>
+      <p class="cap">Il telefono di uno spettatore: puoi toccarlo.</p>
+    </section>
+
+    <section class="pane pane-regia" aria-label="Control Room">
+      <div id="regiaRoot">
+<!--__REGIA_MARKUP__-->
+      </div>
+    </section>
+
+    <section class="pane pane-led" aria-label="LED wall">
+      <div class="led-frame"><canvas id="ledCanvas" width="1920" height="1080"></canvas></div>
+      <p class="cap" id="ledInfo">Sul LED: schermata di attesa con il marchio.</p>
+    </section>
+  </div>
+
+  <p class="demo-foot">Cosa cambia rispetto al sito vero: qui server e pubblico girano dentro questa pagina e la rete è simulata. Le conferme della regia (le domande «Sei sicuro?») sono saltate; la pressione prolungata invece funziona. Il QR punta a cultpop.it solo come esempio. Il browser dell'anteprima blocca «Condividi» e «Salva» della card e il download del PNG, che qui si apre in una finestra. Foto dei concorrenti, immagini delle generazioni, domande SOS e profili sono segnaposto.</p>
+</div>
+
+<div id="pngOverlay" hidden>
+  <figure>
+    <img alt="Classifica esportata in PNG">
+    <figcaption><span>Il PNG per il tecnico del LED (nel sito vero si scarica con un clic). Qui puoi salvarlo con il tasto destro.</span><button class="tool" data-close="1">Chiudi</button></figcaption>
+  </figure>
+</div>
+
+<script>
+/*__JS__*/
+</script>
