@@ -10,6 +10,12 @@ const store = {
 };
 const K = (k) => `cp_${SHOW}_${k}`;
 
+// Solo per le prove: ?show=prova&ricomincia=1 riporta questo telefono all'inizio (nuovo spettatore).
+if (SHOW === 'prova' && params.get('ricomincia') === '1') {
+  try { Object.keys(localStorage).filter((k) => k.startsWith('cp_prova_')).forEach((k) => localStorage.removeItem(k)); } catch { /* */ }
+  history.replaceState(null, '', location.pathname + '?show=prova');
+}
+
 const $app = document.getElementById('app');
 const $conn = document.getElementById('conn');
 const scroller = () => document.getElementById('phoneScreen') || document.scrollingElement;
@@ -24,6 +30,8 @@ let selected = store.get(K('sel'));
 let view = '';
 let everConnected = false;
 let finalView = 'home';
+let introDone = false; // regole lette in questa visita (si rivedono se il server non ci conosce)
+const profileKey = () => `${me.nick}|${me.year}`;
 const pending = new Map();
 
 // ---------- connessione ----------
@@ -125,10 +133,10 @@ function tap(eid, btn) {
 function render(force = false) {
   if (!cfg || !state) return;
   let v;
-  if (store.get(K('intro')) !== '1') v = 'intro';
+  if (!me.nick && !introDone) v = 'intro';
   else if (!me.nick) v = 'profilo';
   else if (state.mode === 'sos' && state.sos) v = `sos:${state.sos.runId}${sosOver() ? ':chiuso' : ''}`;
-  else if (store.get(K('reveal')) !== '1') v = 'generazione';
+  else if (store.get(K('reveal')) !== profileKey()) v = 'generazione'; // ogni nuovo profilo rivede la sua generazione
   else if (state.mode === 'finale') v = `finale:${finalView}`;
   else if (state.votesClosed) v = 'chiuse';
   else if (!state.open) v = 'attesa';
@@ -167,7 +175,7 @@ function renderIntro() {
       <ol class="rules">${cfg.show.regole.map((r, i) => `<li><b>${i + 1}</b>${esc(r)}</li>`).join('')}</ol>
       <button class="btn viola" id="go">Inizia</button>
     </section>`;
-  document.getElementById('go').onclick = () => { store.set(K('intro'), '1'); keepAwake(); render(true); };
+  document.getElementById('go').onclick = () => { introDone = true; keepAwake(); render(true); };
 }
 
 // ---------- nickname + anno di nascita (rotellina) ----------
@@ -237,7 +245,7 @@ function renderGeneration() {
       <button class="btn viola" id="toShow">Inizia a votare</button>
       <button class="link-btn" id="changeYear">Ho sbagliato anno</button>
     </section>`;
-  document.getElementById('toShow').onclick = () => { store.set(K('reveal'), '1'); keepAwake(); render(true); };
+  document.getElementById('toShow').onclick = () => { store.set(K('reveal'), profileKey()); keepAwake(); render(true); };
   document.getElementById('changeYear').onclick = () => { me.nick = null; render(true); };
 }
 
