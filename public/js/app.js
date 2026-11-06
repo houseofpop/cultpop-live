@@ -50,6 +50,8 @@ socket.on('welcome', (w) => {
   showConn(null);
 });
 socket.on('state', (s) => setState(s));
+let crowd = 0;
+socket.on('count', (n) => { crowd = n; updateCrowd(); });
 socket.on('disconnect', () => showConn('Connessione persa: ci stiamo riconnettendo…'));
 socket.on('connect_error', () => showConn(everConnected ? 'Connessione persa: ci stiamo riconnettendo…' : 'Non riesco a collegarmi. Controlla Wi-Fi o rete dati.', !everConnected));
 socket.io.on('reconnect_attempt', (n) => { if (n > 6) showConn('Ancora nessuna connessione… non chiudere la pagina, riproviamo da soli.', true); });
@@ -256,12 +258,22 @@ function genChip() {
 
 function renderWaiting() {
   $app.innerHTML = `${header()}
-    <div class="center-screen">
+    <div class="center-screen waiting">
       <div class="hero" style="margin:0 -16px"></div>
       <p class="hello">Ciao ${esc(me.nick)} ${genChip()}</p>
       <h1 class="big-title">Lo show sta per iniziare</h1>
       <p class="plain">Tieni aperta questa pagina: si attiverà da sola.</p>
+      <p class="crowd hidden" id="crowd" aria-live="polite"></p>
     </div>`;
+  updateCrowd();
+}
+// mostrato solo quando i numeri sono già belli: sotto la soglia non compare niente
+function updateCrowd() {
+  const el = document.getElementById('crowd');
+  if (!el) return;
+  const min = cfg?.show?.contatoreMinimo ?? 10;
+  el.classList.toggle('hidden', crowd < min);
+  el.innerHTML = `Siete già in <strong>${crowd}</strong>! 🎉`;
 }
 
 function renderReactions() {

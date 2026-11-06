@@ -21,7 +21,8 @@
     "votazioniChiuse": {
       "titolo": "Votazioni chiuse",
       "testo": "Grazie per aver votato! Ora la parola agli Sugarfree… il verdetto arriva sul LED."
-    }
+    },
+    "contatoreMinimo": 10
   },
   "coppie": [
     {

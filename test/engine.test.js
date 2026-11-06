@@ -10,6 +10,7 @@ function make() {
   const clock = { now: () => t, advance: (ms) => { t += ms; } };
   const e = new ShowEngine(structuredClone(baseConfig), 'test', { now: clock.now });
   e.setOpen(true);
+  for (const sid of ['s1', 's2', 's3', 'a', 'b', 'c', 'd']) e.setProfile(sid, 'Test ' + sid, 2000);
   return { e, clock };
 }
 
@@ -167,11 +168,12 @@ test('generazioni: anno → generazione, vince l\'intervallo più stretto, stati
   assert.equal(e.setProfile('u2', 'Marco', 1990).gen, 'millennial');
   assert.equal(e.setProfile('u3', '', 1990).ok, false);
   assert.equal(e.setProfile('u4', 'X', 1800).ok, false);
-  const st = e.genStats();
-  assert.equal(st.total, 2);
-  assert.equal(st.counts.genz, 1);
+  const st = e.genStats(); // + i 7 spettatori di prova creati da make(), tutti nati nel 2000
+  assert.equal(st.total, 2 + 7);
+  assert.equal(st.counts.genz, 1 + 7);
+  assert.equal(st.counts.millennial, 1);
   e.ledPrepare('generazioni'); e.ledPublish();
-  assert.equal(e.screenState().program.stats.total, 2);
+  assert.equal(e.screenState().program.stats.total, 9);
 });
 
 test('quiz Rom-Com: solo nel finale, una risposta, profilo deterministico', () => {
@@ -195,6 +197,16 @@ test('chiusura voti: reazioni ferme, telefoni e LED su «Votazioni chiuse»', ()
   e.setAudienceFrozen(false);
   e.setAudienceFrozen(true, { alsoLed: false });
   assert.equal(e.screenState().program.type, 'chiuse'); // resta quello di prima, non viene ripubblicato
+});
+
+test('senza nickname e anno non si vota né si reagisce', () => {
+  const { e } = make();
+  assert.equal(e.react('anonimo', [['c1', 'ride', 3]]).reason, 'profilo');
+  assert.equal(e.s.reactions.c1.points, 0);
+  const run = e.startSos('sos1', 't1');
+  assert.equal(e.voteSos('anonimo', run.runId, 0).reason, 'profilo');
+  e.setProfile('anonimo', 'Ora sì', 1999);
+  assert.equal(e.voteSos('anonimo', run.runId, 0).ok, true);
 });
 
 test('persistenza: lo stato sopravvive a un riavvio', () => {

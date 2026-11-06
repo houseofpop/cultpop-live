@@ -150,3 +150,6 @@ body { -webkit-user-select: none; user-select: none; }
 @media (prefers-reduced-motion: reduce) { .drum { animation: none; } }
 .follow { margin: 0; font-weight: 800; font-size: 1.1rem; text-align: center; }
 .rx-tip { margin-top: 12px; }
+.crowd { margin: 4px 0 0; font-weight: 900; font-size: 1.35rem; background: var(--lime); border: 3px solid var(--inchiostro); border-radius: 14px; padding: 10px 18px; box-shadow: 4px 4px 0 var(--inchiostro); transform: rotate(-1.5deg); animation: pop .4s ease-out; }
+.crowd strong { font-size: 1.6rem; }
+.center-screen.waiting { justify-content: flex-start; padding-top: 6px; }

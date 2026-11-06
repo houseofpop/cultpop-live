@@ -321,6 +321,7 @@ export class ShowEngine {
     if (!this.s.open || this.s.mode !== 'reazioni' || this.s.reactionsLocked || this.s.audienceFrozen) return { ok: false, reason: 'chiuso' };
     if (!Array.isArray(batch)) return { ok: false, reason: 'formato' };
     const ses = this.ensureSession(sid);
+    if (!ses.nick) return { ok: false, reason: 'profilo' }; // prima nickname e anno, poi si vota
     const { reazioniValide: cap, finestraSecondi: win } = this.config.reazioni.rateLimit;
     const t = this.now();
     const b = ses.bucket;
@@ -374,6 +375,7 @@ export class ShowEngine {
     const i = Math.floor(Number(idx));
     if (!(i >= 0 && i < r.counts.length)) return { ok: false, reason: 'opzione' };
     const ses = this.ensureSession(sid);
+    if (!ses.nick) return { ok: false, reason: 'profilo' };
     if (ses.sosVotes[runId] != null) return { ok: true, already: true, choice: ses.sosVotes[runId] };
     ses.sosVotes[runId] = i;
     r.counts[i]++;

@@ -257,6 +257,8 @@ function broadcast(showId, force = false) {
 // ciclo principale: timer SOS, broadcast, salvataggio
 setInterval(() => { for (const id of SHOW_IDS) { engines[id].tick(); broadcast(id); } }, 250);
 setInterval(() => { for (const id of SHOW_IDS) adminNs.to(id).emit('admin:connected', connectedCount(id)); }, 2000);
+// quante persone sono collegate, per «Siete già in…» sulla schermata di attesa dei telefoni
+setInterval(() => { for (const id of SHOW_IDS) io.to(`pub:${id}`).emit('count', connectedCount(id)); }, 3000);
 setInterval(() => { for (const id of SHOW_IDS) persist(engines[id]); }, 1000);
 
 function shutdown() {

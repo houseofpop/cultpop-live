@@ -159,6 +159,7 @@ function tickNow(force) {
 }
 setInterval(() => tickNow(false), 250);
 setInterval(() => sockets.forEach((s) => s.ns === '/regia' && s.push('admin:connected', connectedCount())), 2000);
+setInterval(() => sockets.forEach((s) => s.ns === '/' && s.push('count', connectedCount())), 3000);
 
 function resetAll() {
   engine = new ShowEngine(CONFIG, 'live');
