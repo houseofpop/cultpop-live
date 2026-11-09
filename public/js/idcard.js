@@ -40,8 +40,8 @@ function fitText(ctx, text, x, y, maxW, size, min = 30, weight = 900) {
   ctx.fillText(text, x, y, maxW);
 }
 
-// variant: 'nome' = timbro sul bordo bianco della polaroid, nickname nei dati; 'angolo' = timbro sull'angolo in basso a destra
-export async function makeIdCard({ nick, year, gen, photo, cfg, variant = 'nome' }) {
+// Il timbro sta sul bordo bianco sotto la foto (mai sul viso) e il nickname va nei dati.
+export async function makeIdCard({ nick, year, gen, photo, cfg }) {
   await fontsReady();
   const W = 1080, H = 1920;
   const cv = document.createElement('canvas');
@@ -94,32 +94,21 @@ export async function makeIdCard({ nick, year, gen, photo, cfg, variant = 'nome'
     ctx.restore();
   } else { ctx.fillStyle = C.carta; ctx.fillRect(-box / 2, -box / 2, box, box); }
   ctx.fillStyle = C.inchiostro;
-  if (variant === 'angolo') {
-    // nickname a sinistra sul bordo bianco, timbro sull'angolo in basso a destra (spalla, non viso)
-    ctx.textAlign = 'left';
-    fitText(ctx, NICK, -box / 2, box / 2 + 80, box - 320, 50);
-    if (gen?.timbro) stamp(ctx, gen.timbro, box / 2 - 120, box / 2 + 40, seed, { size: 36, maxW: 300, rot: -0.16 });
-  } else if (gen?.timbro) {
-    // timbro centrato sul bordo bianco sotto la foto: tocca appena il fondo della foto
-    stamp(ctx, gen.timbro, 0, box / 2 + 62, seed, { size: 40, maxW: 560, rot: -0.05 });
-  }
+  // timbro centrato sul bordo bianco sotto la foto: tocca appena il fondo della foto
+  if (gen?.timbro) stamp(ctx, gen.timbro, 0, box / 2 + 62, seed, { size: 40, maxW: 560, rot: -0.05 });
   ctx.restore();
 
   // dati, come su un documento vero
   const dw = 920, dx = (W - dw) / 2;
   let dy = cy + box / 2 + 120 + 50;
-  const withName = variant !== 'angolo';
-  const dh = withName ? 270 : 170;
+  const dh = 270;
   ctx.fillStyle = C.inchiostro; ctx.fillRect(dx + 10, dy + 10, dw, dh);
   ctx.fillStyle = '#fff'; ctx.fillRect(dx, dy, dw, dh);
   ctx.textAlign = 'left';
-  let ry = dy;
-  if (withName) {
-    ctx.font = `800 26px ${F}`; ctx.fillStyle = '#6b6575'; ctx.fillText('NOME', dx + 44, dy + 52);
-    ctx.fillStyle = C.inchiostro; fitText(ctx, NICK, dx + 44, dy + 112, dw - 88, 58);
-    ctx.fillStyle = '#e4e1e8'; ctx.fillRect(dx + 30, dy + 136, dw - 60, 3);
-    ry = dy + 100;
-  }
+  ctx.font = `800 26px ${F}`; ctx.fillStyle = '#6b6575'; ctx.fillText('NOME', dx + 44, dy + 52);
+  ctx.fillStyle = C.inchiostro; fitText(ctx, NICK, dx + 44, dy + 112, dw - 88, 58);
+  ctx.fillStyle = '#e4e1e8'; ctx.fillRect(dx + 30, dy + 136, dw - 60, 3);
+  const ry = dy + 100;
   ctx.fillStyle = C.inchiostro; ctx.fillRect(dx + 300, ry + 64, 4, 170 - 92);
   ctx.font = `800 26px ${F}`; ctx.fillStyle = '#6b6575';
   ctx.fillText('ANNO', dx + 44, ry + 62); ctx.fillText('GENERAZIONE', dx + 344, ry + 62);
