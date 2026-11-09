@@ -28,9 +28,12 @@
     "intro": {
       "attiva": true,
       "presenta": "PRESENTA",
-      "ringraziamento": "Grazie a Just Entertainment per averci ospitato",
+      "ringraziamento": "Grazie a Just Entertainment e a Sergio Cerruti per averci ospitato",
       "logoPartner": "img/je-logo.webp",
-      "nomePartner": "Just Entertainment"
+      "nomePartner": "Just Entertainment",
+      "fotoPersona": "img/sergio.webp",
+      "nomePersona": "Sergio Cerruti",
+      "scritta": "GRAZIE"
     }
   },
   "coppie": [

@@ -526,6 +526,11 @@ function renderSplash() {
   el.className = 'splash ' + (host === document.body ? 'fixed' : 'abs');
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', `Cult Pop presenta ${cfg.show.titolo}. ${it.ringraziamento || ''}`);
+  // nel grazie i nomi di chi ci ospita sono in evidenza
+  let thanks = esc(it.ringraziamento || '');
+  for (const n of [it.nomePartner, it.nomePersona].filter(Boolean)) thanks = thanks.replace(esc(n), `<b>${esc(n)}</b>`);
+  const word = esc(it.scritta || 'GRAZIE');
+  const marquee = `<div class="sp-mq" aria-hidden="true"><span>${(word + ' ✦ ').repeat(8)}</span><span>${(word + ' ✦ ').repeat(8)}</span></div>`;
   el.innerHTML = `
     <div class="sp-a">
       <i class="sp-dot d1"></i><i class="sp-dot d2"></i><i class="sp-dot d3"></i><i class="sp-dot d4"></i><i class="sp-dot d5"></i><i class="sp-dot d6"></i>
@@ -536,8 +541,14 @@ function renderSplash() {
       <div class="sp-stamp">${esc((cfg.show.sottotitolo || '').toUpperCase())}</div>
     </div>
     <div class="sp-b">
-      ${it.logoPartner ? `<img class="sp-partner" src="${esc(asset(it.logoPartner))}" alt="${esc(it.nomePartner || '')}">` : ''}
-      <p class="sp-thanks">${esc(it.ringraziamento || '')}</p>
+      ${marquee}
+      <i class="sp-glint g1">✦</i><i class="sp-glint g2">✦</i><i class="sp-glint g3">✦</i><i class="sp-glint g4">✦</i><i class="sp-glint g5">✦</i>
+      <div class="sp-mid">
+        ${it.logoPartner ? `<img class="sp-partner" src="${esc(asset(it.logoPartner))}" alt="${esc(it.nomePartner || '')}">` : ''}
+        ${it.fotoPersona ? `<div class="sp-person"><i class="sp-spot"></i><img src="${esc(asset(it.fotoPersona))}" alt="${esc(it.nomePersona || '')}">${it.nomePersona ? `<span class="sp-name">${esc(it.nomePersona.toUpperCase())}</span>` : ''}</div>` : ''}
+        <p class="sp-thanks">${thanks}</p>
+      </div>
+      ${marquee.replace('sp-mq', 'sp-mq bot')}
     </div>
     <button class="sp-skip" type="button">Salta</button>`;
   host.appendChild(el);
@@ -551,7 +562,7 @@ function renderSplash() {
   };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const t1 = setTimeout(() => el.classList.add('b'), reduce ? 1800 : 3900);
-  const t2 = setTimeout(end, reduce ? 4200 : 6900);
+  const t2 = setTimeout(end, reduce ? 5200 : (it.fotoPersona ? 9200 : 6900));
   el.addEventListener('click', () => { clearTimeout(t1); clearTimeout(t2); end(); });
   buzz(12);
 }

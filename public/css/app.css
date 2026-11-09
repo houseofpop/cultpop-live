@@ -280,9 +280,40 @@ body { -webkit-user-select: none; user-select: none; }
 @keyframes spUp { from { transform: translateY(40px); opacity: 0; } }
 .sp-stamp { position: relative; font: 900 clamp(1.1rem, 6vw, 1.5rem) var(--font); color: var(--inchiostro); background: var(--fucsia); border: 4px solid var(--inchiostro); padding: .25em .7em; box-shadow: 5px 5px 0 var(--inchiostro); animation: spStamp .45s cubic-bezier(.2,1.8,.5,1) 2.5s both; }
 @keyframes spStamp { 0% { transform: scale(2.4) rotate(8deg); opacity: 0; } 100% { transform: scale(1) rotate(3deg); opacity: 1; } }
-.sp-partner { width: min(34vw, 150px); height: auto; opacity: 0; transform: scale(.85); transition: opacity .8s ease .35s, transform 1.2s cubic-bezier(.2,1,.3,1) .35s; }
-.sp-thanks { margin: 0; font: 700 1.15rem/1.4 var(--font); letter-spacing: .02em; max-width: 24ch; opacity: 0; transform: translateY(8px); transition: opacity .7s ease .9s, transform .7s ease .9s; }
+.sp-b { justify-content: space-between; gap: 8px; padding: calc(env(safe-area-inset-top) + 14px) 0 calc(env(safe-area-inset-bottom) + 62px); background: radial-gradient(90% 55% at 50% 48%, #1d1d1d 0%, #000 70%); }
+.sp-mid { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(8px, 2vh, 18px); padding: 0 24px; position: relative; z-index: 1; }
+.sp-partner { width: min(24vw, 104px, 13vh); height: auto; opacity: 0; transform: scale(.85); transition: opacity .8s ease .3s, transform 1.2s cubic-bezier(.2,1,.3,1) .3s; position: relative; z-index: 1; }
+.sp-thanks { margin: 0; font: 600 clamp(1rem, 4.6vw, 1.2rem)/1.4 var(--font); letter-spacing: .01em; max-width: 25ch; opacity: 0; transform: translateY(10px); transition: opacity .7s ease 1.7s, transform .7s ease 1.7s; position: relative; z-index: 1; text-wrap: balance; }
+.sp-thanks b { font-weight: 900; }
 .splash.b .sp-partner { opacity: 1; transform: scale(1); }
-.splash.b .sp-thanks { opacity: .92; transform: none; }
+.splash.b .sp-thanks { opacity: .95; transform: none; }
+/* scritta GRAZIE che scorre in alto e in basso, contorno bianco */
+.sp-mq { position: relative; flex: none; align-self: stretch; display: flex; overflow: hidden; white-space: nowrap; font: 900 clamp(1.6rem, 8vw, 2.4rem)/1 var(--font); color: transparent; -webkit-text-stroke: 1.5px rgba(255,255,255,.55); opacity: 0; transition: opacity .8s ease .2s; pointer-events: none; }
+.sp-mq.bot { -webkit-text-stroke-color: rgba(255,255,255,.3); }
+.sp-mq span { flex: none; padding-right: .3em; animation: spMq 9s linear infinite; }
+.sp-mq.bot span { animation-direction: reverse; }
+.splash.b .sp-mq { opacity: 1; }
+@keyframes spMq { to { transform: translateX(-100%); } }
+/* la persona: entra dal basso con un rimbalzo, poi ondeggia piano sotto un faro */
+.sp-person { position: relative; flex: none; width: min(58vw, 250px, 38vh); aspect-ratio: 640 / 700; display: grid; place-items: end center; }
+.sp-person img { position: relative; width: 100%; height: 100%; object-fit: cover; object-position: top center; -webkit-mask-image: linear-gradient(#000 72%, transparent 98%); mask-image: linear-gradient(#000 72%, transparent 98%); filter: drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff) drop-shadow(0 -3px 0 #fff); transform-origin: 50% 100%; opacity: 0; transform: translateY(40%) scale(.8); }
+.splash.b .sp-person img { animation: spRise .9s cubic-bezier(.2,1.5,.4,1) .55s both, spSway 2.6s ease-in-out 1.45s infinite alternate; }
+.sp-spot { position: absolute; left: 50%; top: 2%; width: 125%; aspect-ratio: 1; transform: translateX(-50%) scale(.4); border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.34), rgba(255,255,255,.08) 65%, transparent); opacity: 0; transition: opacity .9s ease .4s, transform 1.2s cubic-bezier(.2,1,.3,1) .4s; }
+.splash.b .sp-spot { opacity: 1; transform: translateX(-50%) scale(1); animation: spPulse 2.4s ease-in-out 1.6s infinite alternate; }
+.sp-name { position: absolute; bottom: 6%; left: 50%; font: 900 clamp(1rem, 5vw, 1.3rem) var(--font); letter-spacing: .04em; color: #000; background: #fff; padding: .28em .7em; white-space: nowrap; box-shadow: 5px 5px 0 rgba(255,255,255,.28); opacity: 0; transform: translateX(-50%) rotate(-4deg) scale(1.6); }
+.splash.b .sp-name { animation: spTag .45s cubic-bezier(.2,1.8,.5,1) 1.25s both; }
+.sp-glint { position: absolute; font-style: normal; color: #fff; opacity: 0; pointer-events: none; }
+.splash.b .sp-glint { animation: spTwinkle 1.8s ease-in-out infinite; }
+.sp-glint.g1 { top: 24%; left: 14%; font-size: 26px; animation-delay: .9s !important; }
+.sp-glint.g2 { top: 30%; right: 12%; font-size: 18px; animation-delay: 1.3s !important; }
+.sp-glint.g3 { top: 47%; left: 9%; font-size: 14px; animation-delay: 1.7s !important; }
+.sp-glint.g4 { top: 52%; right: 16%; font-size: 30px; animation-delay: 1.1s !important; }
+.sp-glint.g5 { top: 19%; right: 30%; font-size: 12px; animation-delay: 2s !important; }
+@keyframes spRise { 0% { opacity: 0; transform: translateY(40%) scale(.8); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes spSway { from { transform: rotate(-2.2deg); } to { transform: rotate(2.2deg) translateY(-3px); } }
+@keyframes spPulse { from { filter: brightness(1); } to { filter: brightness(1.35); } }
+@keyframes spTag { from { opacity: 0; transform: translateX(-50%) rotate(-4deg) scale(1.6); } to { opacity: 1; transform: translateX(-50%) rotate(-4deg) scale(1); } }
+@keyframes spTwinkle { 0%, 100% { opacity: 0; transform: scale(.4) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+@media (max-height: 640px) { .sp-mq { font-size: 1.4rem; } }
 .sp-skip { position: absolute; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 14px); background: rgba(0,0,0,.25); color: #fff; border: 2px solid rgba(255,255,255,.6); border-radius: 99px; font: 800 .85rem var(--font); padding: 6px 14px; cursor: pointer; z-index: 2; }
-@media (prefers-reduced-motion: reduce) { .splash *, .splash { animation: none !important; transition-duration: .2s !important; } }
+@media (prefers-reduced-motion: reduce) { .splash *, .splash { animation: none !important; transition-duration: .2s !important; } .splash.b .sp-person img, .splash.b .sp-name { opacity: 1; transform: none; } .splash.b .sp-name { transform: translateX(-50%) rotate(-4deg); } .sp-glint { display: none; } }
