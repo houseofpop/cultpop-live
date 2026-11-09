@@ -184,7 +184,8 @@ CP.prepareAssets(PUB, window.__QR).then(() => {
   let last = 0;
   const frame = (now) => {
     requestAnimationFrame(frame);
-    if (now - last < 40) return;
+    const sc = engine.screenState().program;
+    if (now - last < (sc.type === 'verdetto' || sc.type === 'chiuse' ? 16 : 40)) return;
     last = now;
     if (document.getElementById('stage').dataset.pane !== 'led' && window.matchMedia('(max-width: 1023px)').matches) return;
     CP.drawScene(document.getElementById('ledCanvas'), engine.screenState().program, led.env, { width: 1920, height: 1080, el: now - led.start });
@@ -236,20 +237,20 @@ const steps = [
       const w = ps.querySelector('#wheelScroll'); if (w) { w.scrollTop = (2003 - PUB.annoNascita.min) * 52; w.dispatchEvent(new Event('scroll')); }
       setTimeout(() => ps.querySelector('#saveProfile')?.click(), 250);
     }), pane: 'phone' },
-  { t: 'La generazione', d: '«Congratulazioni, sei un/una Gen Z!», con il testo e l\'immagine di quella generazione (qui un segnaposto). Poi tocca «Inizia a votare».', run: () => phoneTap('#toShow'), pane: 'phone' },
+  { t: 'La generazione', d: '«Congratulazioni, sei un/una Gen Z!», con il testo e l\'immagine della generazione. Da qui, prima dell\'inizio, si può creare la carta d\'identità generazionale con la foto. Poi «Inizia a votare».', run: () => phoneTap('#toShow'), pane: 'phone' },
   { t: 'La regia apre la sessione', d: 'I telefoni passano alle reazioni. Entrano anche i 150 spettatori virtuali, che inseriscono il loro anno di nascita.', run: () => demoCmd('open', { open: true }), pane: 'regia' },
   { t: 'Reazioni per tutto lo show', d: 'Tocca una foto e poi le emoji, anche a raffica. In regia vedi «validi / tap»: oltre 3 reazioni ogni 10 secondi si continua a giocare, ma i punti non salgono.', run: () => phoneTap('.kid[data-id="c3"]'), pane: 'phone' },
   { t: 'Generazioni in sala sul LED', d: 'La regia prepara la statistica in anteprima e la pubblica sulla pagina LED. Il tecnico la manda in onda quando serve.', run: () => { demoCmd('ledPrepare', { type: 'generazioni' }); setTimeout(() => demoCmd('ledPublish'), 400); }, pane: 'led' },
   { t: 'Punti quiz per domanda', d: 'Una casella per ogni risposta corretta (D1, D2, D3): niente doppi clic che sommano due volte.', run: () => { demoCmd('quiz', { teamId: 't2', idx: 0, correct: true }); demoCmd('quiz', { teamId: 't2', idx: 1, correct: true }); demoCmd('quiz', { teamId: 't1', idx: 0, correct: true }); }, pane: 'regia' },
   { t: 'SOS: telefoni e LED insieme', d: 'Un solo comando: domanda sui telefoni (lampo colorato e, su Android, vibrazione) e countdown sul LED. 30 secondi contati dal server, un voto a testa.', run: () => demoCmd('sosStart', { sosId: 'sos1', teamId: 't1', alsoLed: true }), pane: 'led' },
-  { t: 'Risultati e risposta corretta', d: 'Allo scadere il LED mostra le percentuali. Quando i conduttori lo decidono, la regia rivela la risposta corretta. Se il voto è ancora aperto, aspetta la fine del countdown.', run: () => { if (engine.s.sos && !engine.s.sos.closed) demoCmd('sosClose'); setTimeout(() => demoCmd('sosReveal'), 2500); }, pane: 'led' },
+  { t: 'Risultati e risposta corretta', d: 'Allo scadere il LED mostra le percentuali e i telefoni dicono «Guarda il LED»: dopo 10 secondi tornano da soli alle reazioni. Quando i conduttori lo decidono, la regia rivela la risposta corretta.', run: () => { if (engine.s.sos && !engine.s.sos.closed) demoCmd('sosClose'); setTimeout(() => demoCmd('sosReveal'), 2500); }, pane: 'led' },
   { t: 'Classifica provvisoria', d: 'Si torna alle reazioni. La classifica viene fotografata in anteprima e pubblicata: sul LED resta ferma mentre i conduttori la commentano.', run: () => { demoCmd('reactions'); demoCmd('ledPrepare', { type: 'classifica' }); setTimeout(() => demoCmd('ledPublish'), 400); }, pane: 'led' },
   { t: 'Promemoria per i ritardatari', d: '«Sei tu a decidere chi vincerà» con il QR code: il tecnico può mandarlo in onda dopo ogni clip per riempire i buchi.', run: () => { demoCmd('ledPrepare', { type: 'promo' }); setTimeout(() => demoCmd('ledPublish'), 400); }, pane: 'led' },
   { t: 'Chiudi votazioni', d: 'Tenendo premuto «Chiudi votazioni», telefoni e LED mostrano «Votazioni chiuse» e il rullo di tamburi. Le reazioni smettono di contare.', run: () => demoCmd('freeze', { frozen: true }), pane: 'led' },
-  { t: 'Voto Sugarfree, confermato', d: 'Gli Sugarfree scelgono la Coppia Turchese. La regia conferma il voto, che resta bloccato: impossibile assegnare il bonus due volte.', run: () => { demoCmd('sugarfree', { teamId: 't3' }); demoCmd('sugarfreeLock', { locked: true }); }, pane: 'regia' },
+  { t: 'Voto Sugarfree, confermato', d: 'Gli Sugarfree scelgono la Squadra Turchese. La regia conferma il voto, che resta bloccato: impossibile assegnare il bonus due volte.', run: () => { demoCmd('sugarfree', { teamId: 't3' }); demoCmd('sugarfreeLock', { locked: true }); }, pane: 'regia' },
   { t: 'Verdetto in anteprima privata', d: 'La regia prepara il verdetto e controlla il risultato in anteprima. Sul LED restano le «Votazioni chiuse».', run: () => demoCmd('ledPrepare', { type: 'verdetto' }), pane: 'regia' },
   { t: 'Pubblica il verdetto', d: 'Al segnale dei conduttori. In regia serve tenere premuto il pulsante per 2 secondi; qui lo fa la demo. Il LED rivela le coppie dal 3° al 1° posto.', run: () => demoCmd('ledPublish'), pane: 'led' },
-  { t: 'Telefoni al finale', d: 'Il pubblico vede «Grazie!», il quiz «Scopri che Rom-Com sei», il riepilogo del proprio show e l\'invito a seguire Cult Pop.', run: () => demoCmd('finale'), pane: 'phone' },
+  { t: 'Telefoni al finale', d: 'Il pubblico vede «Grazie!», il riepilogo del proprio show, il quiz «Scopri che Rom-Com sei» e l\'invito a seguire Cult Pop: i riquadri entrano uno alla volta.', run: () => demoCmd('finale'), pane: 'phone' },
 ];
 let stepI = 0;
 function renderStep() {

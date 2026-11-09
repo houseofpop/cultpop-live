@@ -1,95 +1,71 @@
-// Card verticale 1080x1920 del profilo romcom, generata sul telefono (nessun carico sul server).
-import { C, paper, brush, scribble, plus, badge, wrap, loadImage, fontsReady, rng } from './deco.js';
+// Card verticale 1080x1920 della Rom-Com, generata sul telefono (nessun carico sul server).
+import { C, paper, brush, scribble, plus, wrap, loadImage, fontsReady } from './deco.js';
 
 const F = 'Archivo, system-ui, sans-serif';
 
-export async function makeCard({ profile, recap, fav, cfg, nick, gen }) {
+export async function makeCard({ profile, cfg, nick }) {
   await fontsReady();
   const W = 1080, H = 1920;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
   const seed = [...profile.id].reduce((a, c) => a + c.charCodeAt(0), 11);
-
   paper(ctx, W, H, seed);
-  const hero = await loadImage('/img/sigla-hero.webp');
-  if (hero) {
-    // striscia della sigla in alto con bordo strappato
-    ctx.save();
-    ctx.beginPath();
-    const r = rng(seed + 1);
-    ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, 560);
-    for (let x = W; x >= 0; x -= 36) ctx.lineTo(x, 560 + (r() - 0.5) * 34);
-    ctx.closePath();
-    ctx.clip();
-    const s = Math.max(W / hero.width, 600 / hero.height);
-    ctx.drawImage(hero, (W - hero.width * s) / 2, -20, hero.width * s, hero.height * s);
-    ctx.restore();
-  }
+  scribble(ctx, 70, 1560, 300, 90, C.lime, 14, seed);
+  plus(ctx, 980, 330, 26);
+  plus(ctx, 110, 1180, 22);
 
-  scribble(ctx, 60, 600, 320, 90, C.lime, 14, seed);
-  plus(ctx, 960, 640, 26);
-  plus(ctx, 110, 1700, 22);
+  // logo piccolo
+  const logo = await loadImage('/img/logo.webp');
+  if (logo) ctx.drawImage(logo, 70, 60, 120, 120 * logo.height / logo.width);
 
+  // intestazione
   ctx.fillStyle = C.inchiostro;
-  ctx.font = `900 46px ${F}`;
-  const who = nick ? `LA ROM-COM DI ${String(nick).toUpperCase()} È` : 'LA MIA ROM-COM È';
-  ctx.fillText(who, 80, 760, 920);
+  ctx.font = `900 50px ${F}`;
+  ctx.textAlign = 'center';
+  const who = nick ? `LA ROM-COM DEL CUORE DI ${String(nick).toUpperCase()} È:` : 'LA MIA ROM-COM DEL CUORE È:';
+  wrap(ctx, who, W / 2, 290, 900, 60, 'center');
 
-  // titolo del profilo su pennellata col colore del profilo
-  brush(ctx, 40, 800, 1000, 380, C.viola, seed + 2);
+  // locandina incorniciata e leggermente ruotata
+  const poster = await loadImage(profile.locandina?.startsWith('data:') || profile.locandina?.startsWith('/') ? profile.locandina : '/' + profile.locandina);
+  const pw = 540, ph = 810, px = (W - pw) / 2, py = 400;
+  ctx.save();
+  ctx.translate(W / 2, py + ph / 2);
+  ctx.rotate(-0.025);
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(-pw / 2 + 18, -ph / 2 + 18, pw + 24, ph + 24);
+  ctx.fillStyle = '#fff'; ctx.fillRect(-pw / 2 - 12, -ph / 2 - 12, pw + 24, ph + 24);
+  if (poster) ctx.drawImage(poster, -pw / 2, -ph / 2, pw, ph);
+  ctx.lineWidth = 6; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(-pw / 2 - 12, -ph / 2 - 12, pw + 24, ph + 24);
+  ctx.restore();
+
+  // titolo del film su pennellata
+  ctx.font = `900 76px ${F}`;
+  const title = profile.titolo.toUpperCase();
+  const lines = [];
+  { const words = title.split(' '); let l = ''; for (const w of words) { const t = l ? `${l} ${w}` : w; if (ctx.measureText(t).width > 880 && l) { lines.push(l); l = w; } else l = t; } if (l) lines.push(l); }
+  const ty = py + ph + 70;
+  brush(ctx, 60, ty, 960, 70 + lines.length * 84, C.viola, seed + 2);
   ctx.fillStyle = '#fff';
-  ctx.font = `900 104px ${F}`;
-  const endY = wrap(ctx, profile.titolo.toUpperCase(), W / 2, 930, 900, 110, 'center');
-
-  // etichetta colore
-  ctx.fillStyle = profile.colore || C.lime;
-  ctx.fillRect(80, Math.max(endY + 40, 1220), 160, 18);
-
-  ctx.fillStyle = C.inchiostro;
-  ctx.font = `700 44px ${F}`;
-  let y = wrap(ctx, profile.descrizione, 80, Math.max(endY + 120, 1300), 920, 58);
-
-  if (gen) {
-    y += 24;
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, ty + 92 + i * 84));
+  let y = ty + 70 + lines.length * 84 + 50;
+  if (profile.anno) {
     ctx.font = `900 34px ${F}`;
-    const gt = gen.nome.toUpperCase();
-    const gw = ctx.measureText(gt).width;
-    ctx.fillStyle = gen.colore || C.lime;
-    ctx.fillRect(80, y, gw + 40, 60);
-    ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 4; ctx.strokeRect(80, y, gw + 40, 60);
-    ctx.fillStyle = C.inchiostro;
-    ctx.fillText(gt, 100, y + 42);
+    const yr = `(${profile.anno})`;
+    const yw = ctx.measureText(yr).width + 40;
+    ctx.fillStyle = C.lime; ctx.fillRect(W / 2 - yw / 2, y - 40, yw, 56);
+    ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 4; ctx.strokeRect(W / 2 - yw / 2, y - 40, yw, 56);
+    ctx.fillStyle = C.inchiostro; ctx.fillText(yr, W / 2, y);
     y += 70;
   }
-  if (recap?.taps || fav) {
-    y += 30;
-    ctx.font = `800 36px ${F}`;
-    ctx.fillStyle = C.inchiostro;
-    const bits = [];
-    if (recap?.taps) bits.push(`${recap.taps} reazioni`);
-    if (fav) bits.push(`tifo per ${fav.nome}`);
-    ctx.fillStyle = '#fff';
-    const txt = bits.join(' · ').toUpperCase();
-    const tw = ctx.measureText(txt).width;
-    ctx.fillStyle = C.inchiostro;
-    ctx.fillRect(80, y, tw + 40, 64);
-    ctx.fillStyle = C.lime;
-    ctx.fillText(txt, 100, y + 45);
-  }
-
-  // piede
-  const logo = await loadImage('/img/logo.webp');
-  if (logo) ctx.drawImage(logo, 70, 1590, 210, 210 * logo.height / logo.width);
-  else badge(ctx, 80, 1640, 54, F);
-  ctx.textAlign = 'right';
+  // descrizione
   ctx.fillStyle = C.inchiostro;
-  ctx.font = `900 34px ${F}`;
-  ctx.fillText(cfg.show.instagramHandle || '', W - 80, 1730);
-  ctx.font = `700 28px ${F}`;
-  ctx.fillText(cfg.show.titolo, W - 80, 1780);
-  ctx.fillText(cfg.show.sottotitolo, W - 80, 1820);
-  ctx.textAlign = 'left';
+  ctx.font = `700 38px ${F}`;
+  wrap(ctx, profile.descrizione, W / 2, y, 900, 50, 'center');
 
+  // solo il nostro @
+  ctx.font = `900 42px ${F}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(cfg.show.instagramHandle || '', W / 2, H - 70);
+  ctx.textAlign = 'left';
   return new Promise((res) => cv.toBlob(res, 'image/png'));
 }

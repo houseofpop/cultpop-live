@@ -176,16 +176,60 @@ test('generazioni: anno → generazione, vince l\'intervallo più stretto, stati
   assert.equal(e.screenState().program.stats.total, 9);
 });
 
-test('quiz Rom-Com: solo nel finale, una risposta, profilo deterministico', () => {
+test('quiz Rom-Com: solo nel finale, 4 risposte, una per domanda', () => {
   const { e } = make();
-  assert.equal(e.answerAB('u', 'ab1', 'A').ok, false); // durante lo show non c'è
+  assert.equal(e.answerAB('u', 'q1', 'A').ok, false); // durante lo show non c'è
   e.goFinale();
-  assert.equal(e.answerAB('u', 'ab1', 'A').ok, true);
-  assert.equal(e.answerAB('u', 'ab1', 'B').choice, 'A');
-  for (const q of ['ab2', 'ab3', 'ab4']) e.answerAB('u', q, 'A');
-  assert.equal(e.personal('u').profilo.id, 'romantica');
-  e.answerAB('v', 'ab1', 'B'); e.answerAB('v', 'ab2', 'B'); e.answerAB('v', 'ab3', 'B'); e.answerAB('v', 'ab4', 'A');
-  assert.equal(e.computeProfile('v').id, 'gesto'); // parità bestie/gesto: decide l'ultima risposta
+  assert.equal(e.answerAB('u', 'q1', 'E').ok, false); // solo A-D
+  assert.equal(e.answerAB('u', 'q1', 'D').ok, true);
+  assert.equal(e.answerAB('u', 'q1', 'A').choice, 'D'); // non modificabile
+});
+
+test('quiz Rom-Com: punteggi 2+1 e regole di spareggio', () => {
+  const { e } = make();
+  e.goFinale();
+  const play = (sid, answers) => { answers.split('').forEach((c, i) => e.answerAB(sid, 'q' + (i + 1), c)); return e.computeProfile(sid).id; };
+  assert.equal(play('tuttiA', 'AAAAAA'), 'bridget'); // Bridget 7 punti
+  assert.equal(play('tuttiB', 'BBBBBB'), 'holiday'); // Holiday 6, Notting 5
+  // 10 cose e Tre metri a 5 punti: vince chi ha più risposte principali (10 cose: 2 contro 1)
+  assert.equal(play('pari', 'CDDDAC'), 'diecicose');
+});
+
+test('quiz Rom-Com: tutte le 4096 combinazioni danno un risultato, e tutti gli 8 film sono raggiungibili', () => {
+  const { e } = make();
+  e.goFinale();
+  const seen = {};
+  for (let n = 0; n < 4096; n++) {
+    const sid = 'c' + n;
+    for (let i = 0; i < 6; i++) e.answerAB(sid, 'q' + (i + 1), 'ABCD'[Math.floor(n / 4 ** i) % 4]);
+    const id = e.computeProfile(sid)?.id;
+    assert.ok(id, 'combinazione senza risultato: ' + n);
+    seen[id] = (seen[id] || 0) + 1;
+  }
+  assert.equal(Object.keys(seen).length, 8);
+});
+
+test('SOS: dopo la chiusura i telefoni tornano da soli alle reazioni dopo 10 secondi', () => {
+  const { e, clock } = make();
+  e.startSos('sos1', 't1');
+  clock.advance(31_000); e.tick(); // chiuso
+  assert.equal(e.s.mode, 'sos');
+  clock.advance(9_000); e.tick();
+  assert.equal(e.s.mode, 'sos');
+  clock.advance(1_500); e.tick();
+  assert.equal(e.s.mode, 'reazioni');
+});
+
+test('parità di punteggio segnalata alla regia', () => {
+  const { e } = make();
+  assert.equal(e.adminState().parita.length, 1); // tutte a 20 punti all'inizio (premi pubblico divisi)
+  e.setQuizAnswer('t1', 0, true);
+  e.setQuizAnswer('t2', 0, true);
+  const p = e.adminState().parita;
+  assert.equal(p.length, 1);
+  assert.deepEqual(p[0].squadre.sort(), ['Squadra Fucsia', 'Squadra Lime']);
+  e.setQuizAnswer('t2', 1, true);
+  assert.equal(e.adminState().parita.length, 0);
 });
 
 test('chiusura voti: reazioni ferme, telefoni e LED su «Votazioni chiuse»', () => {

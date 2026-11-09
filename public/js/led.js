@@ -384,7 +384,7 @@ function sos(g, scene) {
     ctx.fillText(`VOTA ORA DAL TELEFONO · ${s.voters} VOTI`, 0, 0); ctx.restore();
   } else if (s.counts && kClosed >= 1 && s.corretta == null) {
     ctx.font = `900 ${40 * u}px ${F}`; ctx.fillStyle = C.inchiostro;
-    ctx.fillText(!total ? 'NESSUN VOTO' : s.tie ? 'PARITÀ! IL PUBBLICO È DIVISO' : `${total} VOTI`, W / 2, H - 30 * u);
+    if (!total || s.tie) ctx.fillText(!total ? 'NESSUN VOTO' : 'PARITÀ! IL PUBBLICO È DIVISO', W / 2, H - 30 * u);
   }
   ctx.textAlign = 'left';
 }
@@ -458,22 +458,47 @@ function verdetto(g, scene) {
     ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
     ctx.fillText(txt, W / 2, H - 50 * u, W - 200 * u);
     ctx.restore();
-    // coriandoli
-    if (g.el !== Infinity) {
-      const cols = [C.lime, C.fucsia, C.turchese, C.giallo, C.viola];
-      for (let i = 0; i < 90; i++) {
-        const r = rng(i + 100);
-        const st = last + 400 + r() * 1500;
-        const ph = (t - st) / 4000;
-        if (ph < 0 || ph > 1) continue;
-        ctx.fillStyle = cols[i % cols.length];
-        const x = r() * W + Math.sin(ph * 10 + i) * 40 * u;
-        const y = -20 * u + ph * (H + 40 * u);
-        ctx.save(); ctx.translate(x, y); ctx.rotate(ph * 12 + i);
-        ctx.fillRect(-8 * u, -4 * u, 16 * u, 8 * u); ctx.restore();
-      }
-    }
+    if (g.el !== Infinity) confetti(ctx, W, H, u, t - last - 300);
   }
+}
+
+/** Coriandoli: due cannoni dagli angoli bassi + pioggia dall'alto, con attrito e sfarfallio. */
+function confetti(ctx, W, H, u, t) {
+  if (t < 0 || t > 9000) return;
+  const cols = [C.lime, C.fucsia, C.turchese, C.giallo, C.viola, '#ffffff'];
+  const tau = 0.55, term = 160 * u; // attrito (s) e velocità di caduta (px/s)
+  const N = 170;
+  for (let i = 0; i < N; i++) {
+    const r = rng(i * 7 + 3);
+    const cannon = i < 110;
+    const delay = cannon ? r() * 0.5 : 0.3 + r() * 2.2;
+    const tt = t / 1000 - delay;
+    if (tt < 0) continue;
+    let x0, y0, vx, vy;
+    if (cannon) {
+      const left = i % 2 === 0;
+      x0 = left ? -10 * u : W + 10 * u; y0 = H * (0.82 + r() * 0.1);
+      const ang = (left ? -1 : -1) * (Math.PI / 2 - (0.35 + r() * 0.55)) ;
+      const sp = (1100 + r() * 900) * u;
+      vx = (left ? 1 : -1) * Math.cos(ang) * sp; vy = Math.sin(ang) * sp;
+    } else { x0 = r() * W; y0 = -30 * u; vx = (r() - 0.5) * 60 * u; vy = 40 * u; }
+    const e = 1 - Math.exp(-tt / tau);
+    const x = x0 + vx * tau * e + Math.sin(tt * (2 + r() * 2) + i) * 30 * u;
+    const y = y0 + vy * tau * e + term * (tt - tau * e);
+    if (y > H + 40 * u) continue;
+    const fade = Math.min(1, (9 - t / 1000) / 1.5);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, fade);
+    ctx.translate(x, y);
+    ctx.rotate(r() * 6 + tt * (2 + r() * 4));
+    ctx.scale(1, Math.max(0.15, Math.abs(Math.cos(tt * (5 + r() * 6) + i))));
+    ctx.fillStyle = cols[i % cols.length];
+    const w = (10 + r() * 10) * u, h = (6 + r() * 6) * u;
+    if (i % 5 === 0) { ctx.beginPath(); ctx.arc(0, 0, h * 0.8, 0, Math.PI * 2); ctx.fill(); }
+    else ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
 }
 
 export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale' };
@@ -487,7 +512,7 @@ function chiuse(g) {
   // timbro "VOTAZIONI CHIUSE" che entra e oscilla
   const k = g.el === Infinity ? 1 : ease(t / 700);
   ctx.save();
-  ctx.translate(W / 2, H * 0.38);
+  ctx.translate(W / 2, H * 0.26);
   ctx.rotate(-0.06 + Math.sin(t / 900) * 0.01);
   ctx.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
   ctx.globalAlpha = k;
@@ -498,28 +523,46 @@ function chiuse(g) {
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
   ctx.fillText(txt, 0, 45 * u, W * 0.86);
   ctx.restore();
-  // sottotitolo
+  // riquadro: gli Sugarfree possono ancora ribaltare tutto
   ctx.globalAlpha = g.el === Infinity ? 1 : ease((t - 600) / 600);
-  ctx.font = `800 ${46 * u}px ${F}`;
-  const sub = 'Ora la parola agli Sugarfree…';
-  const sw = Math.min(ctx.measureText(sub).width + 60 * u, W - 120 * u);
-  ctx.fillStyle = '#fff'; ctx.fillRect(W / 2 - sw / 2, H * 0.58, sw, 84 * u);
-  ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 5 * u; ctx.strokeRect(W / 2 - sw / 2, H * 0.58, sw, 84 * u);
+  ctx.font = `800 ${44 * u}px ${F}`;
+  const sub = vc.testoLed || 'Ma gli Sugarfree possono confermare o ribaltare il risultato…';
+  const lines = wrapLines(ctx, sub, Math.min(W - 200 * u, 1300 * u));
+  const sw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 70 * u;
+  const sh = lines.length * 56 * u + 34 * u;
+  const sy = H * 0.45;
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(W / 2 - sw / 2 + 8 * u, sy + 8 * u, sw, sh);
+  ctx.fillStyle = '#fff'; ctx.fillRect(W / 2 - sw / 2, sy, sw, sh);
+  ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 5 * u; ctx.strokeRect(W / 2 - sw / 2, sy, sw, sh);
   ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
-  ctx.fillText(sub, W / 2, H * 0.58 + 58 * u, W - 160 * u);
-  // rullo di tamburi: tre bacchette che battono
-  ctx.font = `${110 * u}px ${F}`;
-  ['🥁', '🥁', '🥁'].forEach((d, i) => {
-    const bounce = g.el === Infinity ? 0 : Math.abs(Math.sin(t / 160 + i * 1.1)) * 26 * u;
-    ctx.fillText(d, W / 2 + (i - 1) * 190 * u, H * 0.86 - bounce);
-  });
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, sy + 58 * u + i * 56 * u));
+  // immagine al centro, con un'oscillazione «da cucina»
+  const im = vc.immagineLed && img(srcOf(vc.immagineLed));
+  if (im) {
+    const ih = Math.min(H - (sy + sh) - 16 * u, H * 0.42);
+    const iw = ih * im.width / im.height;
+    const kk = g.el === Infinity ? 1 : ease((t - 900) / 700);
+    const sway = g.el === Infinity ? 0 : Math.sin(t / 260) * 0.06;
+    ctx.save();
+    ctx.globalAlpha = kk;
+    ctx.translate(W / 2, H);
+    ctx.rotate(sway);
+    ctx.scale(0.7 + 0.3 * kk, 0.7 + 0.3 * kk);
+    ctx.drawImage(im, -iw / 2, -ih, iw, ih);
+    ctx.restore();
+  } else {
+    ctx.font = `${110 * u}px ${F}`;
+    ['🥁', '🥁', '🥁'].forEach((d, i) => ctx.fillText(d, W / 2 + (i - 1) * 190 * u, H * 0.92 - (g.el === Infinity ? 0 : Math.abs(Math.sin(t / 160 + i * 1.1)) * 26 * u)));
+  }
   ctx.globalAlpha = 1;
   ctx.textAlign = 'left';
 }
+const srcOf = (p) => (/^(data:|blob:|https?:|\/)/.test(p) ? p : '/' + p);
 
 export async function prepareAssets(config, qr) {
   await fontsReady();
-  await preload(['/img/logo.webp', qr?.dataUrl, ...(config?.concorrenti || []).map((c) => c.foto)]);
+  const vc = config?.show?.votazioniChiuse;
+  await preload(['/img/logo.webp', qr?.dataUrl, vc?.immagineLed && srcOf(vc.immagineLed), ...(config?.concorrenti || []).map((c) => c.foto)]);
 }
 
 export async function downloadPng(cv, name = 'cultpop-led.png') {

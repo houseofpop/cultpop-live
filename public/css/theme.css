@@ -33,17 +33,17 @@ body {
 /* colori espliciti: su telefoni/PC in modalità scura i pulsanti senza colore diventano bianco su bianco */
 button, select, input { font-family: inherit; color: var(--inchiostro); }
 
-/* fondo "carta strappata" generato in SVG, niente immagini pesanti */
+/* fondo: carta uniforme con grana leggera e qualche scarabocchio fisso agli angoli (va bene su ogni schermo) */
 .paper-bg {
-  background-color: var(--carta);
+  background-color: #e4e1dc;
   background-image:
-    url('/img/torn-a.svg'),
-    url('/img/torn-b.svg'),
-    radial-gradient(circle at 20% 10%, rgba(255,255,255,.55), transparent 40%),
-    radial-gradient(circle at 80% 90%, rgba(0,0,0,.06), transparent 45%);
-  background-repeat: no-repeat;
-  background-size: 140% auto, 160% auto, cover, cover;
-  background-position: -20% -6%, 40% 108%, center, center;
+    url('/img/scribble-lime.svg'),
+    url('/img/scribble-pink.svg'),
+    radial-gradient(rgba(23,18,31,.07) 1px, transparent 1.2px),
+    radial-gradient(rgba(255,255,255,.6) 1px, transparent 1.2px);
+  background-repeat: no-repeat, no-repeat, repeat, repeat;
+  background-size: 120px auto, 150px auto, 14px 14px, 14px 14px;
+  background-position: right -20px top 70px, left -30px bottom 24px, 0 0, 7px 7px;
   background-attachment: fixed;
 }
 

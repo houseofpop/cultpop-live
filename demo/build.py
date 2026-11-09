@@ -102,6 +102,10 @@ for c in cfg['concorrenti']:
     c['foto'] = IMG.get('/' + c['foto'], c['foto'])
 if cfg['show'].get('gifVotiChiusi'):
     cfg['show']['gifVotiChiusi'] = IMG.get('/' + cfg['show']['gifVotiChiusi'], cfg['show']['gifVotiChiusi'])
+vcc = cfg['show'].get('votazioniChiuse', {})
+if vcc.get('immagineLed'): vcc['immagineLed'] = IMG.get('/' + vcc['immagineLed'], vcc['immagineLed'])
+for pr in cfg.get('profili', []):
+    if pr.get('locandina'): pr['locandina'] = IMG.get('/' + pr['locandina'], pr['locandina'])
 for g in cfg.get('generazioni', []):
     g['immagine'] = IMG.get('/' + g['immagine'], g['immagine'])
 import subprocess
@@ -113,6 +117,7 @@ js = '\n'.join([
     f'window.__QR = {json.dumps({"url": "https://cultpop.it (esempio)", "dataUrl": qr})};',
     module(P / 'js/deco.js'),
     module(P / 'js/card.js', card_src),
+    module(P / 'js/idcard.js', inline_imgs((P / 'js/idcard.js').read_text())),
     module(P / 'js/led.js', inline_imgs((P / 'js/led.js').read_text())),
     module(ROOT / 'server/engine.js', engine_src),
     module(ROOT / 'server/config.js', config_src),

@@ -52,10 +52,11 @@ export function validateConfig(c) {
   const profIds = ids(c.profili);
   if (profIds.size < 1) err('servono profili romcom');
   for (const q of c.domandeAB || []) {
-    for (const side of ['A', 'B']) {
-      if (!q[side]?.testo) err(`domanda ${q.id}: opzione ${side} senza testo`);
-      for (const pid of Object.keys(q[side]?.profili || {}))
-        if (!profIds.has(pid)) err(`domanda ${q.id}/${side}: profilo "${pid}" inesistente`);
+    if (!Array.isArray(q.opzioni) || q.opzioni.length < 2 || q.opzioni.length > 8) err(`domanda ${q.id}: servono da 2 a 8 opzioni`);
+    for (const [i, o] of (q.opzioni || []).entries()) {
+      if (!o.testo) err(`domanda ${q.id}/${'ABCDEFGH'[i]}: testo mancante`);
+      for (const k of ['principale', 'secondario']) if (o[k] && !profIds.has(o[k])) err(`domanda ${q.id}/${'ABCDEFGH'[i]}: film "${o[k]}" inesistente`);
+      if (!o.principale) err(`domanda ${q.id}/${'ABCDEFGH'[i]}: manca il film principale`);
     }
   }
   if (ids(c.domandeAB).size !== (c.domandeAB || []).length) err('id domande A/B duplicati');
@@ -97,8 +98,9 @@ export function publicConfig(c) {
       id, nome, coppia, foto, colore: teamById[coppia]?.colore,
     })),
     emoji: c.reazioni.emoji.map(({ id, simbolo, punti }) => ({ id, simbolo, punti })),
-    domandeAB: (c.domandeAB || []).map((q) => ({ id: q.id, testo: q.testo, A: q.A.testo, B: q.B.testo })),
-    generazioni: (c.generazioni || []).map(({ id, nome, da, a, testo, colore, immagine }) => ({ id, nome, da, a, testo, colore, immagine })),
+    domandeAB: (c.domandeAB || []).map((q) => ({ id: q.id, testo: q.testo, opzioni: q.opzioni.map((o) => o.testo) })),
+    generazioni: (c.generazioni || []).map(({ id, nome, nomeSingolare, da, a, testo, colore, immagine, timbro }) => ({ id, nome, nomeSingolare, da, a, testo, colore, immagine, timbro })),
+    sosRitornoAutomaticoSecondi: c.sosRitornoAutomaticoSecondi ?? 10,
     annoNascita: { min: c.annoNascita?.min ?? 1928, max: new Date().getFullYear(), predefinito: c.annoNascita?.predefinito ?? 2000 },
   };
 }

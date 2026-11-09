@@ -1,6 +1,7 @@
 // Sito del pubblico. Il server è l'unica fonte di verità: qui si disegna lo stato ricevuto.
 // Percorso: regole → nickname e anno → generazione → reazioni (tutto lo show) → SOS quando li lancia la regia → finale.
 import { makeCard } from './card.js';
+import { makeIdCard, loadPhoto } from './idcard.js';
 
 const params = new URLSearchParams(location.search);
 const SHOW = params.get('show') === 'prova' ? 'prova' : 'live';
@@ -30,6 +31,7 @@ let selected = store.get(K('sel'));
 let view = '';
 let everConnected = false;
 let finalView = 'home';
+let idMode = false; // carta d'identità generazionale aperta
 let introDone = false; // regole lette in questa visita (si rivedono se il server non ci conosce)
 const profileKey = () => `${me.nick}|${me.year}`;
 const pending = new Map();
@@ -139,6 +141,7 @@ function render(force = false) {
   else if (!me.nick) v = 'profilo';
   else if (state.mode === 'sos' && state.sos) v = `sos:${state.sos.runId}${sosOver() ? ':chiuso' : ''}`;
   else if (store.get(K('reveal')) !== profileKey()) v = 'generazione'; // ogni nuovo profilo rivede la sua generazione
+  else if (idMode) v = 'carta';
   else if (state.mode === 'finale') v = `finale:${finalView}`;
   else if (state.votesClosed) v = 'chiuse';
   else if (!state.open) v = 'attesa';
@@ -151,14 +154,16 @@ function render(force = false) {
     if (v === 'intro') renderIntro();
     else if (v === 'profilo') renderProfile();
     else if (v === 'generazione') renderGeneration();
+    else if (v === 'carta') renderIdCard();
     else if (v === 'attesa') renderWaiting();
     else if (v === 'reazioni') renderReactions();
     else if (v === 'chiuse') renderVotesClosed();
     else if (v.endsWith(':chiuso')) renderSosClosed();
-    else if (v.startsWith('sos:')) { renderSos(); if (!prev.startsWith(v)) alertSos(); }
+    else if (v.startsWith('sos:')) { const fresh = !prev.startsWith(v); renderSos(fresh); if (fresh) alertSos(); }
     else if (v.startsWith('finale:')) renderFinal();
   } else {
     if (v === 'reazioni') updateReactionBar();
+    if (v === 'carta') updateIdBanner();
     if (v.startsWith('sos:') && !v.endsWith(':chiuso')) updateSos();
   }
 }
@@ -200,7 +205,7 @@ function renderProfile() {
           <div class="wheel-pad"></div>
         </div>
       </div>
-      <p class="tip">Scorri per scegliere l'anno · nickname e anno restano solo sul tuo telefono e nelle statistiche anonime della serata</p>
+      <p class="tip">Scorri per scegliere l'anno · i tuoi dati restano anonimi</p>
       <button class="btn viola" id="saveProfile" disabled>Scopri la tua generazione</button>
     </section>`;
   const nick = document.getElementById('nick');
@@ -241,13 +246,15 @@ function renderGeneration() {
     <section class="reveal">
       <p class="congrats">Congratulazioni, <strong>${esc(me.nick)}</strong>!</p>
       <p class="sei">Sei un/una</p>
-      <h1 class="gen-name"><span class="brush">${esc(g?.nome || 'Generazione misteriosa')}</span></h1>
+      <h1 class="gen-name"><span class="brush">${esc(g?.nomeSingolare || g?.nome || 'Generazione misteriosa')}</span></h1>
       <img class="gen-img" src="${esc(g?.immagine || '')}" alt="" style="background:${esc(g?.colore || '#fff')}">
       <p class="gen-quote">${esc(g?.testo || '')}</p>
       <button class="btn viola" id="toShow">Inizia a votare</button>
+      ${idOffer() ? '<button class="btn bianco small-btn" id="toId">📸 Crea la tua carta d\'identità</button>' : ''}
       <button class="link-btn" id="changeYear">Ho sbagliato anno</button>
     </section>`;
   document.getElementById('toShow').onclick = () => { store.set(K('reveal'), profileKey()); keepAwake(); render(true); };
+  document.getElementById('toId')?.addEventListener('click', () => { store.set(K('reveal'), profileKey()); idMode = true; render(true); });
   document.getElementById('changeYear').onclick = () => { me.nick = null; render(true); };
 }
 
@@ -259,12 +266,14 @@ function genChip() {
 function renderWaiting() {
   $app.innerHTML = `${header()}
     <div class="center-screen waiting">
-      <div class="hero" style="margin:0 -16px"></div>
-      <p class="hello">Ciao ${esc(me.nick)} ${genChip()}</p>
+      <img class="wait-logo" src="/img/logo.webp" alt="Cult Pop">
+      <p class="hello">Ciao ${esc(me.nick)}!</p>
       <h1 class="big-title">Lo show sta per iniziare</h1>
       <p class="plain">Tieni aperta questa pagina: si attiverà da sola.</p>
       <p class="crowd hidden" id="crowd" aria-live="polite"></p>
+      ${idOffer() ? `<button class="id-cta" id="toId"><span class="id-cta-k">Mentre aspetti</span><span class="id-cta-t">📸 Crea la tua carta d'identità generazionale</span><span class="id-cta-s">Una foto, la tua generazione e un timbro: pronta per le storie</span></button>` : ''}
     </div>`;
+  document.getElementById('toId')?.addEventListener('click', () => { idMode = true; render(true); });
   updateCrowd();
 }
 // mostrato solo quando i numeri sono già belli: sotto la soglia non compare niente
@@ -320,7 +329,7 @@ function renderVotesClosed() {
       <h1 class="closed-title"><span class="brush">${esc(vc.titolo)}</span></h1>
       <p class="closed-text">${esc(vc.testo)}</p>
       <div class="drum" aria-hidden="true">🥁</div>
-      <p class="plain">Grazie ${esc(me.nick)}! ${genChip()}</p>
+      <p class="plain">Grazie ${esc(me.nick)}!</p>
     </section>`;
 }
 
@@ -329,7 +338,7 @@ function renderSosClosed() {
   const mine = me.sosVotes?.[state.sos.runId];
   $app.innerHTML = `${header()}
     <section class="closed-screen">
-      <h1 class="closed-title"><span class="brush">Voti chiusi! Guarda il LED 👀</span></h1>
+      <h1 class="closed-title"><span class="brush">Guarda il LED 👀</span></h1>
       ${cfg.show.gifVotiChiusi ? `<img class="closed-gif" src="${esc(asset(cfg.show.gifVotiChiusi))}" alt="">` : ''}
       <p class="plain">${mine != null ? '✓ Il tuo voto è stato contato' : 'Stavolta non hai votato: al prossimo SOS!'}</p>
     </section>`;
@@ -347,11 +356,11 @@ function alertSos() {
 }
 
 let sosTimer = null;
-function renderSos() {
+function renderSos(fresh = false) {
   const s = state.sos;
   const mine = me.sosVotes?.[s.runId];
   $app.innerHTML = `${header()}
-    <section class="q-screen">
+    <section class="q-screen sos-screen ${fresh ? 'enter' : ''}">
       <div class="row-between">
         <span class="q-kicker brush">🆘 SOS pubblico</span>
         <div class="timer" id="timer"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="#17121f" stroke-opacity=".15" stroke-width="5"/><circle id="ring" cx="20" cy="20" r="17" fill="none" stroke="#8a2bf8" stroke-width="5" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="0"/></svg><span class="num" id="num"></span></div>
@@ -366,8 +375,8 @@ function renderSos() {
     const idx = Number(b.dataset.i);
     $app.querySelectorAll('.opt').forEach((x) => (x.disabled = true));
     socket.timeout(5000).emit('sos', { runId: s.runId, idx }, (err, res) => {
-      if (!err && res?.ok) { me.sosVotes = { ...me.sosVotes, [s.runId]: res.choice }; buzz(30); renderSos(); }
-      else if (!err && res?.reason === 'scaduto') renderSos();
+      if (!err && res?.ok) { me.sosVotes = { ...me.sosVotes, [s.runId]: res.choice }; buzz(30); renderSos(false); }
+      else if (!err && res?.reason === 'scaduto') renderSos(false);
       else { $app.querySelectorAll('.opt').forEach((x) => (x.disabled = false)); showConn('Voto non inviato, riprova!', true); setTimeout(() => showConn(socket.connected ? null : 'Riconnessione…'), 2000); }
     });
   }));
@@ -411,10 +420,10 @@ async function renderFinal() {
     const n = cfg.domandeAB.length - missing.length + 1;
     $app.innerHTML = `${header()}
       <section class="q-screen">
-        <span class="q-kicker brush">Che Rom-Com sei?</span>
+        <span class="q-kicker brush">Che Rom&#8209;Com sei?</span>
         <p class="progress">Domanda ${n} di ${cfg.domandeAB.length}</p>
-        <h2 class="q-text">${esc(q.testo)}</h2>
-        <div class="ab-opts">${['A', 'B'].map((k) => `<button class="opt ${k}" data-k="${k}"><b>${k}</b>${esc(q[k])}</button>`).join('')}</div>
+        <h2 class="q-text quiz-q">${esc(q.testo)}</h2>
+        <div class="ab-opts quiz-opts">${q.opzioni.map((t, i) => { const k = 'ABCDEFGH'[i]; return `<button class="opt q${k}" data-k="${k}"><b>${k}</b>${esc(t)}</button>`; }).join('')}</div>
         <button class="link-btn" id="back">← Torna indietro</button>
       </section>`;
     $app.querySelectorAll('.opt').forEach((b) => (b.onclick = () => answerAB(q.id, b.dataset.k, () => render(true))));
@@ -424,67 +433,114 @@ async function renderFinal() {
   if (finalView === 'card') {
     const p = me.profilo;
     if (!p) {
-      $app.innerHTML = `${header()}<div class="center-screen"><p class="loading">Stiamo calcolando la tua Rom-Com…</p></div>`;
+      $app.innerHTML = `${header()}<div class="center-screen"><p class="loading">Stiamo calcolando la tua Rom&#8209;Com…</p></div>`;
       setTimeout(refreshMe, 1200);
       return;
     }
-    const fav = cfg.concorrenti.find((c) => c.id === me.recap?.favorito);
     $app.innerHTML = `${header()}
-      <section class="final">
-        <h2>La tua Rom-Com è…</h2>
-        <img class="card-img" id="card" alt="${esc(p.titolo)}: ${esc(p.descrizione)}">
+      <section class="final romcom">
+        <h2 class="rc-k">La tua Rom&#8209;Com del cuore è:</h2>
+        <img class="rc-poster" src="${esc(asset(p.locandina))}" alt="Locandina di ${esc(p.titolo)}">
+        <h1 class="rc-title"><span class="brush">${esc(p.titolo)}</span>${p.anno ? ` <small>(${p.anno})</small>` : ''}</h1>
+        <p class="rc-desc">${esc(p.descrizione)}</p>
+        <p class="rc-handle">${esc(cfg.show.instagramHandle || '')}</p>
         <div class="actions">
           <button class="btn viola" id="share">Condividi</button>
           <a class="btn bianco" id="save" download="cultpop-romcom.png">Salva</a>
           <a class="btn fucsia wide" href="${esc(cfg.show.instagramUrl)}" target="_blank" rel="noopener">Seguici su Instagram</a>
         </div>
-        <p class="tip">Se il salvataggio non parte, tieni premuto sull'immagine</p>
         <button class="link-btn" id="back">← Torna al finale</button>
       </section>`;
     document.getElementById('back').onclick = () => setFinal('home');
-    const img = document.getElementById('card');
     try {
       if (!cardUrl) {
-        const blob = await makeCard({ profile: p, recap: me.recap, fav, cfg, nick: me.nick, gen: gen() });
+        const blob = await makeCard({ profile: p, cfg, nick: me.nick });
         window.__cardBlob = blob;
         cardUrl = URL.createObjectURL(blob);
       }
-      img.src = cardUrl;
       document.getElementById('save').href = cardUrl;
     } catch (e) { console.error(e); }
-    document.getElementById('share').onclick = async () => {
-      const blob = window.__cardBlob;
-      const file = blob && new File([blob], 'cultpop-romcom.png', { type: 'image/png' });
-      try {
-        if (file && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'La mia Rom-Com', text: `Sono "${p.titolo}" ${cfg.show.instagramHandle || ''}` });
-        else if (navigator.share) await navigator.share({ title: 'Cult Pop LIVE', text: `Sono "${p.titolo}"`, url: cfg.show.instagramUrl });
-        else document.getElementById('save').click();
-      } catch { /* annullato */ }
-    };
+    document.getElementById('share').onclick = () => shareBlob(window.__cardBlob, 'cultpop-romcom.png', `La mia Rom-Com del cuore è "${p.titolo}" ${cfg.show.instagramHandle || ''}`, 'save');
     return;
   }
-  // home del finale
+  // home del finale: i riquadri entrano uno dopo l'altro
   const r = me.recap || {};
   const fav = cfg.concorrenti.find((c) => c.id === r.favorito);
   const emo = cfg.emoji.find((e) => e.id === r.topEmoji);
+  const g = gen();
   const done = !missing.length;
   $app.innerHTML = `${header()}
-    <section class="final">
-      <h1 class="big-title">Grazie, ${esc(me.nick)}!</h1>
-      <button class="cta" id="quiz">
-        <span class="cta-t">${done ? 'Rivedi la tua Rom-Com' : 'Scopri che Rom-Com sei'}</span>
-        <span class="cta-s">${done ? 'Salvala e condividila' : 'Nessuna risposta sbagliata'}</span>
-      </button>
-      <div class="recap">
-        <strong>Il tuo show in breve</strong> ${genChip()}<br>
-        ${r.taps ? `Hai reagito <strong>${r.taps}</strong> volte.` : 'Stasera hai fatto il tifo in silenzio.'}
-        ${fav ? `<br>Il tuo Gen Z preferito: <strong>${esc(fav.nome)}</strong>.` : ''}
-        ${emo ? `<br>La tua emoji del cuore: ${esc(emo.simbolo)}` : ''}
+    <section class="final final-home">
+      <h1 class="big-title seq" style="--d:0s">Grazie, ${esc(me.nick)}!</h1>
+      <div class="recap seq" style="--d:.25s">
+        <strong class="recap-t">Il tuo show in breve</strong>
+        ${g ? `<span>La tua generazione: <strong>${esc(g.nome)}</strong></span>` : ''}
+        <span>${r.taps ? `Hai reagito <strong>${r.taps}</strong> volte.` : 'Stasera hai fatto il tifo in silenzio.'}</span>
+        ${fav ? `<span>Il tuo Gen Z preferito: <strong>${esc(fav.nome)}</strong></span>` : ''}
+        ${emo ? `<span>La tua emoji preferita: ${esc(emo.simbolo)}</span>` : ''}
       </div>
-      <p class="follow">${esc(cfg.show.seguici || '')}</p>
-      <a class="btn fucsia" href="${esc(cfg.show.instagramUrl)}" target="_blank" rel="noopener">Seguici su Instagram ${esc(cfg.show.instagramHandle || '')}</a>
+      <button class="cta seq" id="quiz" style="--d:.9s">
+        <span class="cta-t">${done ? 'Rivedi la tua Rom&#8209;Com' : 'Scopri che Rom&#8209;Com sei'}</span>
+        <span class="cta-s">${done ? 'Salvala e condividila' : 'Se ti mancavano i test del Cioè'}</span>
+      </button>
+      <div class="follow-box seq" style="--d:1.55s">
+        <p class="follow">${esc(cfg.show.seguici || '')}</p>
+        <a class="btn fucsia follow-btn" href="${esc(cfg.show.instagramUrl)}" target="_blank" rel="noopener">Seguici ${esc(cfg.show.instagramHandle || '')}</a>
+      </div>
     </section>`;
   document.getElementById('quiz').onclick = () => setFinal(done ? 'card' : 'quiz');
 }
+
+// ---------- condivisione ----------
+async function shareBlob(blob, name, text, saveId) {
+  const file = blob && new File([blob], name, { type: 'image/png' });
+  try {
+    if (file && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], text });
+    else if (navigator.share) await navigator.share({ title: 'Cult Pop LIVE', text, url: cfg.show.instagramUrl });
+    else document.getElementById(saveId)?.click();
+  } catch { /* annullato dall'utente */ }
+}
+
+// ---------- carta d'identità generazionale (attività dell'attesa) ----------
+const idOffer = () => !state?.open && state?.mode !== 'finale';
+let idPhoto = null, idUrl = null, idBlob = null;
+async function renderIdCard() {
+  $app.innerHTML = `${header()}
+    <section class="final idcard">
+      <div class="id-banner hidden" id="idBanner">Lo show è iniziato! <button class="link-btn" id="idBack2">Torna a votare →</button></div>
+      <h2 class="rc-k">La tua carta d'identità generazionale</h2>
+      <img class="card-img" id="idImg" alt="Carta d'identità generazionale di ${esc(me.nick)}">
+      <input type="file" id="idFile" accept="image/*" capture="user" hidden>
+      <div class="actions">
+        <button class="btn viola wide" id="idShot">📸 ${idPhoto ? 'Rifai la foto' : 'Fatti una foto'}</button>
+        <button class="btn fucsia" id="idShare">Condividi</button>
+        <a class="btn bianco" id="idSave" download="cultpop-carta-identita.png">Salva</a>
+      </div>
+      <p class="tip">La foto resta sul tuo telefono: non viene inviata a nessuno.</p>
+      <button class="link-btn" id="idBack">← Torna indietro</button>
+    </section>`;
+  const back = () => { idMode = false; render(true); };
+  document.getElementById('idBack').onclick = back;
+  document.getElementById('idBack2').onclick = back;
+  const input = document.getElementById('idFile');
+  document.getElementById('idShot').onclick = () => input.click();
+  input.onchange = async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    try { idPhoto = await loadPhoto(f); idUrl = null; renderIdCard(); }
+    catch { showConn('Non riesco a leggere la foto, riprova', true); setTimeout(() => showConn(null), 2500); }
+  };
+  document.getElementById('idShare').onclick = () => shareBlob(idBlob, 'cultpop-carta-identita.png', `Sono un/una ${gen()?.nomeSingolare || gen()?.nome || ''} ${cfg.show.instagramHandle || ''}`, 'idSave');
+  updateIdBanner();
+  try {
+    if (!idUrl) {
+      idBlob = await makeIdCard({ nick: me.nick, year: me.year, gen: gen(), photo: idPhoto, cfg });
+      idUrl = URL.createObjectURL(idBlob);
+    }
+    document.getElementById('idImg').src = idUrl;
+    document.getElementById('idSave').href = idUrl;
+  } catch (e) { console.error(e); }
+}
+function updateIdBanner() { document.getElementById('idBanner')?.classList.toggle('hidden', !state?.open); }
 
 showConn(null);

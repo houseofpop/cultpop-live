@@ -122,7 +122,7 @@ function buildStatic() {
     else cmd('reset', {}, 'Azzerare lo show di PROVA?');
   };
   $('sfBonus').textContent = cfg.punteggi.sugarfree.bonus;
-  $('adjTarget').innerHTML = cfg.coppie.map((t) => `<option value="${esc(t.id)}">Coppia: ${esc(t.nome)}</option>`).join('')
+  $('adjTarget').innerHTML = cfg.coppie.map((t) => `<option value="${esc(t.id)}">${esc(t.nome)}</option>`).join('')
     + cfg.concorrenti.map((c) => `<option value="${esc(c.id)}">Gen Z: ${esc(c.nome)}</option>`).join('');
   $('adjForm').onsubmit = (e) => {
     e.preventDefault();
@@ -177,7 +177,7 @@ function render() {
   const sosRunning = A.sos && !A.sos.closed;
   morph($('sosCues'), cfg.sos.map((s, i) => `
     <div class="sos-cue"><p>${i + 1}. ${esc(s.domanda)}</p>
-      <div class="row">${cfg.coppie.map((t) => `<button class="team-btn ${A.sosUsed[t.id] ? 'used' : ''}" style="background:${esc(t.colore)}" data-sos="${esc(s.id)}" data-team="${esc(t.id)}" ${sosRunning ? 'disabled' : ''} title="Avvia SOS per ${esc(t.nome)}">${esc(t.nome.replace('Coppia ', ''))}</button>`).join('')}</div>
+      <div class="row">${cfg.coppie.map((t) => `<button class="team-btn ${A.sosUsed[t.id] ? 'used' : ''}" style="background:${esc(t.colore)}" data-sos="${esc(s.id)}" data-team="${esc(t.id)}" ${sosRunning ? 'disabled' : ''} title="Avvia SOS per ${esc(t.nome)}">${esc(t.nome.replace('Squadra ', ''))}</button>`).join('')}</div>
     </div>`).join(''));
 
   // generazioni dal vivo
@@ -233,8 +233,9 @@ function renderSosPanel(P) {
       <div class="row wrap" style="margin-top:10px">
         ${!onLed ? '<button class="tbtn" data-act="sosToLed">Prepara i risultati per il LED</button>' : ''}
         ${s.revealed ? '<span class="muted">Risposta corretta già rivelata sul LED</span>' : `<button class="tbtn warn" data-act="sosReveal">Rivela risposta corretta (${L[def.corretta]}) sul LED</button>`}
-        <button class="tbtn big" data-act="back">↩ Telefoni su Reazioni</button>
-      </div>`
+        <button class="tbtn big" data-act="back">↩ Telefoni su Reazioni ora</button>
+      </div>
+      <p class="muted" id="autoBack">${autoBackText(s)}</p>`
       : `<button class="tbtn danger" data-act="sosClose">Chiudi ora il voto</button>`}`);
   const tick = () => {
     const el = $('sosTimer');
@@ -242,13 +243,30 @@ function renderSosPanel(P) {
     el.textContent = s.closed ? 'CHIUSO' : `${Math.ceil(Math.max(0, s.endsAt - (Date.now() + offset)) / 1000)}s`;
   };
   if (!s.closed) timerInt = setInterval(tick, 200);
+  else timerInt = setInterval(() => { const el = $('autoBack'); if (!el) return clearInterval(timerInt); el.textContent = autoBackText(s); }, 500);
+}
+
+function tiesIn(teams) {
+  const by = {};
+  for (const t of teams) (by[t.totale] ||= []).push(t.nome);
+  return Object.entries(by).filter(([, n]) => n.length > 1).map(([tot, squadre]) => ({ totale: Number(tot), squadre }));
+}
+
+function autoBackText(s) {
+  const sec = cfg.sosRitornoAutomaticoSecondi ?? 10;
+  if (!s.closed || !s.closedAt || A.mode !== 'sos') return '';
+  const left = Math.max(0, Math.ceil((s.closedAt + sec * 1000 - (Date.now() + offset)) / 1000));
+  return `I telefoni tornano da soli alle reazioni tra ${left} s (sul LED restano i risultati).`;
 }
 
 function renderScores() {
   const st = A.standings;
   const Q = cfg.punteggi.quiz;
   const byId = Object.fromEntries(st.coppie.map((t) => [t.id, t]));
-  morph($('scoreTable'), `<table class="score-table"><thead><tr><th>Coppia</th><th>Quiz (risposte giuste)</th><th>Reaz.</th><th>Pubbl.</th><th>SF</th><th>Corr.</th><th>Tot</th></tr></thead><tbody>
+  // la parità conta solo a fine puntata: l'avviso compare dopo «Chiudi votazioni»
+  const ties = (A.audienceFrozen ? A.parita || [] : []).map((p) => `<div class="tie-alert">⚠️ <b>PARITÀ</b>: ${p.squadre.map(esc).join(' e ')} a <b>${p.totale}</b> punti. Se non intervieni decide lo spareggio (prima i punti quiz, poi quelli del pubblico). Per decidere voi: <i>Correzione manuale</i>, +1 alla squadra scelta.</div>`).join('');
+  morph($('tieBox'), ties);
+  morph($('scoreTable'), `<table class="score-table"><thead><tr><th>Squadra</th><th>Quiz (risposte giuste)</th><th>Reaz.</th><th>Pubbl.</th><th>SF</th><th>Corr.</th><th>Tot</th></tr></thead><tbody>
     ${cfg.coppie.map((t) => {
       const s = byId[t.id];
       const ind = st.individui.filter((i) => i.coppia === t.id).map((i) => `${esc(i.nome)} ${i.punti}`).join(' · ');
@@ -264,7 +282,7 @@ function renderScores() {
   morph($('sfBox'), `
     <div class="sf-row">${cfg.coppie.map((t) => `<button class="sf-btn ${A.sugarfree === t.id ? 'on' : ''}" style="--team:${esc(t.colore)}" data-sf="${esc(t.id)}" ${locked ? 'disabled' : ''} aria-pressed="${A.sugarfree === t.id}"><i></i>${A.sugarfree === t.id ? '★ ' : ''}${esc(t.nome)}</button>`).join('')}</div>
     ${A.sugarfree && !locked ? '<button class="sf-clear" data-sf="">Annulla scelta</button>' : ''}
-    <p class="sf-state ${locked ? 'ok' : ''}">${!A.sugarfree ? 'Seleziona la coppia scelta dagli Sugarfree.' : locked ? `✔ Confermato: ${esc(teamName(A.sugarfree))}. Ora puoi preparare il verdetto nella zona LED.` : `Scelta: ${esc(teamName(A.sugarfree))} (non ancora confermata)`}</p>
+    <p class="sf-state ${locked ? 'ok' : ''}">${!A.sugarfree ? 'Seleziona la squadra scelta dagli Sugarfree.' : locked ? `✔ Confermato: ${esc(teamName(A.sugarfree))}. Ora puoi preparare il verdetto nella zona LED.` : `Scelta: ${esc(teamName(A.sugarfree))} (non ancora confermata)`}</p>
     ${A.sugarfree && !locked ? '<button class="tbtn confirm" data-act="sfLock">✔ Conferma voto Sugarfree</button>' : ''}
     ${locked ? `<button class="tbtn" data-act="sfUnlock" ${A.verdictPublished ? 'disabled' : ''}>Sblocca</button>` : ''}`);
 
@@ -295,6 +313,10 @@ function renderLed() {
   pubBtn.classList.toggle('danger-hold', preview?.type === 'verdetto');
   pubBtn.querySelector('.hold-label').textContent = !preview ? 'Prepara prima una scena' : same ? 'Già sulla pagina LED ✓' : preview.type === 'verdetto' ? 'PUBBLICA IL VERDETTO (tieni premuto 2 secondi)' : `PUBBLICA SUL LED ▶ ${SCENE_LABEL[preview.type]}`;
   $('previewInfo').textContent = preview ? `${SCENE_LABEL[preview.type]}, preparata alle ${hhmm(preview.t)}${preview.type === 'classifica' || preview.type === 'generazioni' || preview.type === 'verdetto' ? ' (dati fotografati in quel momento: ripremi per aggiornarli)' : ''}` : 'Nessuna anteprima.';
+  if (preview?.type === 'verdetto') {
+    const vt = tiesIn(preview.standings?.coppie || []);
+    if (vt.length) $('previewInfo').textContent += ` ⚠️ PARITÀ nel verdetto: ${vt.map((p) => p.squadre.join(' e ') + ' a ' + p.totale).join('; ')}. Decide lo spareggio (quiz, poi pubblico) oppure fate una correzione manuale e ripreparate il verdetto.`;
+  }
   $('programInfo').textContent = program ? `${SCENE_LABEL[program.type]}${program.publishedAt ? ', pubblicata alle ' + hhmm(program.publishedAt) : ''}. Il tecnico la manda in onda quando serve.` : '';
   $('screenLink').href = `/schermo?key=${encodeURIComponent(screenKey)}&show=${A.showId}`;
   const sp = sceneSig(preview), sg = sceneSig(program);

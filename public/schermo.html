@@ -51,7 +51,8 @@
     let last = 0;
     function frame(now) {
       requestAnimationFrame(frame);
-      if (now - last < 33) return; // ~30 fotogrammi al secondo bastano e risparmiano il computer della regia
+      // 60 fotogrammi al secondo durante verdetto e votazioni chiuse (coriandoli e animazioni), 30 altrimenti
+      if (now - last < (scene?.type === 'verdetto' || scene?.type === 'chiuse' ? 15 : 33)) return;
       last = now;
       if (!env.config) return;
       drawScene(cv, scene, env, { ...size, el: now - sceneStart, transparent });

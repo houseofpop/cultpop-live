@@ -1,8 +1,8 @@
 {
   "_nota": "DATI FITTIZI. Sostituire nomi, foto, domande, profili e SOS con i contenuti definitivi. Il server valida questo file all'avvio e si rifiuta di partire se qualcosa non torna.",
   "show": {
-    "titolo": "Millennial spiegati ai Gen Z",
-    "sottotitolo": "Rom-Com anni 2000 · Milano Music Week 2026",
+    "titolo": "Millennials spiegati ai Gen Z",
+    "sottotitolo": "Rom-Com anni 2000",
     "instagramUrl": "https://www.instagram.com/cultpop/",
     "instagramHandle": "@cultpop",
     "regole": [
@@ -15,29 +15,31 @@
       "titolo": "Sei tu a decidere chi vincerà",
       "testo": "Inquadra il QR e vota per tutta la puntata"
     },
-    "testoLed": "Millennial spiegati ai Gen Z · Rom-Com anni 2000",
+    "testoLed": "Millennials spiegati ai Gen Z · Rom-Com anni 2000",
     "gifVotiChiusi": "img/voti-chiusi.webp",
-    "seguici": "Non ti libererai di noi così facilmente: seguici su Instagram e continua la festa.",
+    "seguici": "Non ti libererai di noi così facilmente:",
     "votazioniChiuse": {
       "titolo": "Votazioni chiuse",
-      "testo": "Grazie per aver votato! Ora la parola agli Sugarfree… il verdetto arriva sul LED."
+      "testo": "Grazie per aver votato! Ora la parola agli Sugarfree… il verdetto arriva sul LED.",
+      "testoLed": "Ma gli Sugarfree possono confermare o ribaltare il risultato…",
+      "immagineLed": "img/chiuse-centro.webp"
     },
     "contatoreMinimo": 10
   },
   "coppie": [
     {
       "id": "t1",
-      "nome": "Coppia Lime",
+      "nome": "Squadra Lime",
       "colore": "#D2FD3A"
     },
     {
       "id": "t2",
-      "nome": "Coppia Fucsia",
+      "nome": "Squadra Fucsia",
       "colore": "#FD7DFF"
     },
     {
       "id": "t3",
-      "nome": "Coppia Turchese",
+      "nome": "Squadra Turchese",
       "colore": "#3CBF9E"
     }
   ],
@@ -144,7 +146,8 @@
       "a": 1945,
       "testo": "La tua quote preferita: «Si stava meglio quando si stava peggio».",
       "colore": "#c6d3dc",
-      "immagine": "img/generazioni/silenziosa.webp"
+      "immagine": "img/generazioni/silenziosa.webp",
+      "timbro": "SI STAVA MEGLIO"
     },
     {
       "id": "boomer",
@@ -153,7 +156,8 @@
       "a": 1964,
       "testo": "Il tuo linguaggio dell’amore è un buongiornissimo kaffè mandato a 47 gruppi WhatsApp.",
       "colore": "#fbcf2c",
-      "immagine": "img/generazioni/boomer.webp"
+      "immagine": "img/generazioni/boomer.webp",
+      "timbro": "BOOMER INSIDE"
     },
     {
       "id": "x",
@@ -162,16 +166,19 @@
       "a": 1980,
       "testo": "Hai riavvolto le cassette con una Bic. Onestamente, non hai paura di niente.",
       "colore": "#ff9f1c",
-      "immagine": "img/generazioni/x.webp"
+      "immagine": "img/generazioni/x.webp",
+      "timbro": "SOPRAVVISSUTO ALLE CASSETTE"
     },
     {
       "id": "millennial",
-      "nome": "Millennial",
+      "nome": "Millennials",
       "da": 1981,
       "a": 1996,
       "testo": "Hai avuto un’infanzia meravigliosa. Poi sei diventato adulto ed è andato tutto a rotoli. Da allora vivi di nostalgia e sigle dei cartoni animati.",
       "colore": "#fd7dff",
-      "immagine": "img/generazioni/millennial.webp"
+      "immagine": "img/generazioni/millennial.webp",
+      "timbro": "TRAUMATIZZATO DAGLI ANNI 2000",
+      "nomeSingolare": "Millennial"
     },
     {
       "id": "zillennial",
@@ -180,7 +187,8 @@
       "a": 1998,
       "testo": "Sei troppo giovane per sentirti Millennial e troppo vecchio per sentirti Gen Z. Sai solo quello che non sei.",
       "colore": "#8a2bf8",
-      "immagine": "img/generazioni/zillennial.webp"
+      "immagine": "img/generazioni/zillennial.webp",
+      "timbro": "NÉ CARNE NÉ PESCE"
     },
     {
       "id": "genz",
@@ -189,7 +197,8 @@
       "a": 2012,
       "testo": "Il mondo sta esplodendo, ma almeno tu sei venuto bene in foto.",
       "colore": "#d2fd3a",
-      "immagine": "img/generazioni/genz.webp"
+      "immagine": "img/generazioni/genz.webp",
+      "timbro": "CERTIFIED NO FILTER"
     },
     {
       "id": "alpha",
@@ -198,7 +207,8 @@
       "a": 2024,
       "testo": "Sei un iPad kid. I tuoi genitori hanno già 700 foto imbarazzanti di te che un giorno farai di tutto per cancellare.",
       "colore": "#3cbf9e",
-      "immagine": "img/generazioni/alpha.webp"
+      "immagine": "img/generazioni/alpha.webp",
+      "timbro": "CERTIFIED IPAD KID"
     },
     {
       "id": "beta",
@@ -207,7 +217,8 @@
       "a": 2039,
       "testo": "Se ti è uscita questa generazione, probabilmente sei un boomer che ha sbagliato a inserire la data di nascita.",
       "colore": "#ff4d5e",
-      "immagine": "img/generazioni/beta.webp"
+      "immagine": "img/generazioni/beta.webp",
+      "timbro": "ETERNO BAMBINO"
     }
   ],
   "sos": [
@@ -250,103 +261,249 @@
   ],
   "domandeAB": [
     {
-      "id": "ab1",
-      "testo": "Primo appuntamento: dove lo porti?",
-      "A": {
-        "testo": "Cena a lume di candela",
-        "profili": {
-          "romantica": 2,
-          "gesto": 1
+      "id": "q1",
+      "testo": "Ti piace qualcuno. Come te la giochi?",
+      "opzioni": [
+        {
+          "testo": "Ne parlo con gli amici fino a creare una task force. Poi faccio comunque la cosa sbagliata.",
+          "principale": "bridget",
+          "secondario": "love"
+        },
+        {
+          "testo": "Faccio finta di niente e spero in un incontro casuale.",
+          "principale": "notting",
+          "secondario": "holiday"
+        },
+        {
+          "testo": "Lo prendo in giro. Se regge il sarcasmo, c'è speranza.",
+          "principale": "diecicose",
+          "secondario": "tremetri"
+        },
+        {
+          "testo": "Mi butto senza pensarci troppo. Alla prudenza ci penso domani.",
+          "principale": "tremetri",
+          "secondario": "scusa"
         }
-      },
-      "B": {
-        "testo": "Karaoke con tutta la compagnia",
-        "profili": {
-          "bestie": 2,
-          "cinico": 1
-        }
-      }
+      ]
     },
     {
-      "id": "ab2",
-      "testo": "Il tuo crush ti scrive alle 2 di notte",
-      "A": {
-        "testo": "Rispondo in 3 secondi",
-        "profili": {
-          "romantica": 1,
-          "gesto": 2
+      "id": "q2",
+      "testo": "Il tuo sabato sera ideale, senza mentire?",
+      "opzioni": [
+        {
+          "testo": "Una cena con amici che finisce con almeno tre drammi sentimentali.",
+          "principale": "love",
+          "secondario": "bridget"
+        },
+        {
+          "testo": "Un weekend fuori città, magari prenotato all'ultimo minuto.",
+          "principale": "holiday",
+          "secondario": "notting"
+        },
+        {
+          "testo": "Mi vesto bene, scelgo un bel posto e non devo dimostrare niente a nessuno.",
+          "principale": "pretty",
+          "secondario": "diecicose"
+        },
+        {
+          "testo": "Esco senza un piano. Le serate impreviste sono sempre quelle che ricordo.",
+          "principale": "scusa",
+          "secondario": "love"
         }
-      },
-      "B": {
-        "testo": "Visualizzo e rispondo domattina",
-        "profili": {
-          "cinico": 2,
-          "bestie": 1
-        }
-      }
+      ]
     },
     {
-      "id": "ab3",
-      "testo": "La colonna sonora del tuo cuore è…",
-      "A": {
-        "testo": "Una ballad strappalacrime",
-        "profili": {
-          "romantica": 2,
-          "cinico": 1
+      "id": "q3",
+      "testo": "Quando una situazione sentimentale si complica, tu…",
+      "opzioni": [
+        {
+          "testo": "Rileggo la chat, faccio gli screenshot e chiedo un parere al gruppo WhatsApp.",
+          "principale": "bridget",
+          "secondario": "notting"
+        },
+        {
+          "testo": "Uso il sarcasmo come dispositivo di protezione.",
+          "principale": "diecicose",
+          "secondario": "bridget"
+        },
+        {
+          "testo": "Metto subito in chiaro quanto valgo. Non ho tempo da perdere.",
+          "principale": "pretty",
+          "secondario": "diecicose"
+        },
+        {
+          "testo": "Più mi dicono di lasciar perdere, più voglio capire come andrà a finire.",
+          "principale": "scusa",
+          "secondario": "tremetri"
         }
-      },
-      "B": {
-        "testo": "Il tormentone dell'estate",
-        "profili": {
-          "bestie": 1,
-          "gesto": 2
-        }
-      }
+      ]
     },
     {
-      "id": "ab4",
-      "testo": "Come ti dichiari?",
-      "A": {
-        "testo": "Gesto plateale sotto la pioggia",
-        "profili": {
-          "gesto": 2,
-          "romantica": 1
+      "id": "q4",
+      "testo": "Una storia finisce. Qual è la prima cosa che fai?",
+      "opzioni": [
+        {
+          "testo": "Prenoto un viaggio. O almeno apro Skyscanner.",
+          "principale": "holiday",
+          "secondario": "scusa"
+        },
+        {
+          "testo": "Mi occupo dei problemi sentimentali degli amici. I miei possono aspettare.",
+          "principale": "love",
+          "secondario": "bridget"
+        },
+        {
+          "testo": "Torno alle mie abitudini. Almeno quelle sono prevedibili.",
+          "principale": "notting",
+          "secondario": "pretty"
+        },
+        {
+          "testo": "Ascolto la stessa canzone triste 43 volte. Voglio soffrire con metodo.",
+          "principale": "tremetri",
+          "secondario": "holiday"
         }
-      },
-      "B": {
-        "testo": "Vocale di 7 minuti alla migliore amica",
-        "profili": {
-          "bestie": 2,
-          "cinico": 1
+      ]
+    },
+    {
+      "id": "q5",
+      "testo": "Cosa ti conquista davvero in una persona?",
+      "opzioni": [
+        {
+          "testo": "Chi rispetta la mia indipendenza e non cerca di cambiarmi.",
+          "principale": "pretty",
+          "secondario": "diecicose"
+        },
+        {
+          "testo": "Chi mi fa sentire a casa, anche quando fuori è tutto un casino.",
+          "principale": "notting",
+          "secondario": "holiday"
+        },
+        {
+          "testo": "Chi si ricorda le piccole cose, senza bisogno di grandi sceneggiate.",
+          "principale": "love",
+          "secondario": "notting"
+        },
+        {
+          "testo": "Chi è talmente diverso da me che i miei amici aprirebbero subito un'inchiesta.",
+          "principale": "scusa",
+          "secondario": "pretty"
         }
-      }
+      ]
+    },
+    {
+      "id": "q6",
+      "testo": "Quale colpo di scena potrebbe succedere nella tua vita?",
+      "opzioni": [
+        {
+          "testo": "Faccio una figuraccia epocale proprio davanti alla persona che mi piace.",
+          "principale": "bridget",
+          "secondario": "love"
+        },
+        {
+          "testo": "Parto per dimenticare qualcuno e finisco per conoscere qualcun altro.",
+          "principale": "holiday",
+          "secondario": "scusa"
+        },
+        {
+          "testo": "Mi innamoro della persona con cui continuo a litigare.",
+          "principale": "diecicose",
+          "secondario": "tremetri"
+        },
+        {
+          "testo": "Finisco in una storia talmente intensa che, anni dopo, la definirò «un periodo di crescita».",
+          "principale": "tremetri",
+          "secondario": "pretty"
+        }
+      ]
     }
   ],
   "profili": [
     {
-      "id": "romantica",
-      "titolo": "La Corsa all'Aeroporto",
-      "descrizione": "Credi nel colpo di fulmine e sei pronto a fermare un aereo pur di dire «ti amo». Il finale lo vuoi con il bacio e i titoli di coda.",
-      "colore": "#FD7DFF"
+      "id": "bridget",
+      "titolo": "Il diario di Bridget Jones",
+      "anno": 2001,
+      "frase": "SEI BRIDGET JONES.",
+      "descrizione": "Hai sempre un piano, una chat da analizzare e almeno tre figuracce da smaltire. La tua vita sentimentale è una commedia degli equivoci, ma purtroppo nessuno ti ha dato il copione.",
+      "colore": "#fd7dff",
+      "locandina": "img/film/bridget.webp"
     },
     {
-      "id": "cinico",
-      "titolo": "Il Cinico Redento",
-      "descrizione": "Dici di non credere all'amore, ma alla terza canzone lenta crolli. Il tuo arco narrativo è il migliore del film.",
-      "colore": "#3CBF9E"
+      "id": "notting",
+      "titolo": "Notting Hill",
+      "anno": 1999,
+      "frase": "SEI NOTTING HILL.",
+      "descrizione": "Vuoi una vita tranquilla, pochi drammi e possibilmente una routine prevedibile. Poi incontri qualcuno che ti stravolge completamente i piani. E improvvisamente non sai più mettere insieme una frase.",
+      "colore": "#3cbf9e",
+      "locandina": "img/film/notting.webp"
     },
     {
-      "id": "bestie",
-      "titolo": "La Migliore Amica che Sa Tutto",
-      "descrizione": "Consigli d'oro, battute perfette e piani B. Senza di te la protagonista non arriverebbe mai al lieto fine.",
-      "colore": "#D2FD3A"
+      "id": "diecicose",
+      "titolo": "10 cose che odio di te",
+      "anno": 1999,
+      "frase": "SEI 10 COSE CHE ODIO DI TE.",
+      "descrizione": "Il sarcasmo è il tuo linguaggio dell'amore. Ti piace chi sa tenerti testa, ma ammettere che qualcuno ti interessa è una delle cose più difficili che tu abbia mai fatto.",
+      "colore": "#d2fd3a",
+      "locandina": "img/film/diecicose.webp"
     },
     {
-      "id": "gesto",
-      "titolo": "Il Re del Gesto Plateale",
-      "descrizione": "Cartelli, serenate, stereo sopra la testa: per te l'amore è uno show e il pubblico deve applaudire.",
-      "colore": "#FBCF2C"
+      "id": "pretty",
+      "titolo": "Pretty Woman",
+      "anno": 1990,
+      "frase": "SEI PRETTY WOMAN.",
+      "descrizione": "Sai quanto vali e non hai intenzione di abbassare gli standard. Ti piacciono le sorprese, ma soprattutto chi ti rispetta. Il lieto fine va bene, purché tu possa decidere come arrivarci.",
+      "colore": "#ff4d5e",
+      "locandina": "img/film/pretty.webp"
+    },
+    {
+      "id": "love",
+      "titolo": "Love Actually",
+      "anno": 2003,
+      "frase": "SEI LOVE ACTUALLY.",
+      "descrizione": "Sei sempre in mezzo alle storie degli altri: consigli, drammi, screenshot e cene che degenerano. Dai lezioni sentimentali a tutti, nonostante la tua vita amorosa sia una serie TV con troppi personaggi.",
+      "colore": "#fbcf2c",
+      "locandina": "img/film/love.webp"
+    },
+    {
+      "id": "holiday",
+      "titolo": "L'amore non va in vacanza",
+      "anno": 2006,
+      "frase": "SEI L'AMORE NON VA IN VACANZA.",
+      "descrizione": "Il tuo primo istinto davanti a una delusione? Cambiare Paese. Hai trasformato le crisi sentimentali in un'agenzia viaggi. Non risolvi sempre i problemi, ma almeno trovi dei voli interessanti.",
+      "colore": "#8a2bf8",
+      "locandina": "img/film/holiday.webp"
+    },
+    {
+      "id": "scusa",
+      "titolo": "Scusa ma ti chiamo amore",
+      "anno": 2008,
+      "frase": "SEI SCUSA MA TI CHIAMO AMORE.",
+      "descrizione": "Hai un talento naturale per le situazioni sentimentali improbabili. Quando tutti ti dicono «ma sei sicuro?», il tuo gruppo WhatsApp ha già aperto un'inchiesta. E tu hai già deciso di fare di testa tua.",
+      "colore": "#c6d3dc",
+      "locandina": "img/film/scusa.webp"
+    },
+    {
+      "id": "tremetri",
+      "titolo": "Tre metri sopra il cielo",
+      "anno": 2004,
+      "frase": "SEI TRE METRI SOPRA IL CIELO.",
+      "descrizione": "Per te una cotta tranquilla non esiste. Ti emozioni al massimo volume, hai una playlist per ogni trauma sentimentale e almeno una storia che, ripensandoci, avrebbe richiesto molta più lucidità.",
+      "colore": "#ff9f1c",
+      "locandina": "img/film/tremetri.webp"
     }
   ],
-  "_domandeAB_nota": "Le domande A/B non sono più nello show: formano il quiz «Che Rom-Com sei?» che ognuno fa da solo nel finale."
+  "_domandeAB_nota": "Quiz «Che Rom-Com sei?» (6 domande, 4 risposte, 8 film): lo fa ognuno da solo nel finale.",
+  "sosRitornoAutomaticoSecondi": 10,
+  "quizPunteggi": {
+    "principale": 2,
+    "secondario": 1,
+    "spareggio": [
+      "q5",
+      "q3",
+      "q1",
+      "q2",
+      "q4",
+      "q6"
+    ],
+    "_nota": "Vince il film con più punti; in parità quello con più associazioni principali; poi il film principale della risposta alla domanda 5, poi 3, poi le altre; in ultimo l'ordine della lista dei profili."
+  }
 }

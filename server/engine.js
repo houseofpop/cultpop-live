@@ -155,7 +155,7 @@ export class ShowEngine {
   startSos(sosId, teamId, { alsoLed = true } = {}) {
     const def = this.sosById[sosId];
     if (!def) throw new Error('SOS inesistente');
-    if (!this.teamIds.includes(teamId)) throw new Error('Coppia inesistente');
+    if (!this.teamIds.includes(teamId)) throw new Error('Squadra inesistente');
     if (this.s.sos && !this.s.sos.closed) throw new Error('C\'è già un SOS in corso');
     const t = this.now();
     this.s.sos = {
@@ -179,6 +179,13 @@ export class ShowEngine {
   tick() {
     const r = this.s.sos;
     if (r && !r.closed && this.now() >= r.endsAt + SOS_GRACE_MS) this.closeSos('tempo scaduto');
+    // dopo «Guarda il LED» i telefoni tornano da soli alle reazioni (la regia può farlo prima)
+    const back = (this.config.sosRitornoAutomaticoSecondi ?? 10) * 1000;
+    if (back > 0 && this.s.mode === 'sos' && r?.closed && r.closedAt && this.now() >= r.closedAt + back) {
+      this.s.mode = 'reazioni';
+      this.log('Telefoni → Reazioni (automatico dopo l\'SOS)');
+      this.touch();
+    }
   }
 
   closeSos(reason = 'chiuso') {
@@ -233,7 +240,7 @@ export class ShowEngine {
   /** Punti quiz per domanda: ogni casella è una risposta corretta (niente doppi clic che sommano due volte). */
   setQuizAnswer(teamId, idx, correct) {
     const arr = this.s.quiz[teamId];
-    if (!arr) throw new Error('Coppia inesistente');
+    if (!arr) throw new Error('Squadra inesistente');
     const i = Math.floor(Number(idx));
     if (!(i >= 0 && i < arr.length)) throw new Error('Domanda inesistente');
     arr[i] = !!correct;
@@ -248,7 +255,7 @@ export class ShowEngine {
 
   setSugarfree(teamId) {
     if (this.s.sugarfreeLocked) throw new Error('Voto Sugarfree bloccato: sbloccalo per cambiarlo');
-    if (teamId != null && !this.teamIds.includes(teamId)) throw new Error('Coppia inesistente');
+    if (teamId != null && !this.teamIds.includes(teamId)) throw new Error('Squadra inesistente');
     this.s.sugarfree = teamId;
     this.log(teamId ? `Voto Sugarfree → ${this.teamById[teamId].nome}` : 'Voto Sugarfree annullato');
     this.touch(false);
@@ -357,8 +364,10 @@ export class ShowEngine {
 
   /** Quiz «Che Rom-Com sei?»: solo nel finale, ognuno in autonomia. */
   answerAB(sid, qid, choice) {
-    if (!this.abById[qid]) return { ok: false, reason: 'domanda' };
-    if (choice !== 'A' && choice !== 'B') return { ok: false, reason: 'scelta' };
+    const q = this.abById[qid];
+    if (!q) return { ok: false, reason: 'domanda' };
+    const idx = 'ABCDEFGH'.indexOf(choice);
+    if (typeof choice !== 'string' || choice.length !== 1 || idx < 0 || idx >= q.opzioni.length) return { ok: false, reason: 'scelta' };
     if (this.s.mode !== 'finale') return { ok: false, reason: 'chiusa' };
     const ses = this.ensureSession(sid);
     if (ses.ab[qid]) return { ok: true, already: true, choice: ses.ab[qid] };
@@ -387,22 +396,39 @@ export class ShowEngine {
   }
 
   // ---------- calcoli ----------
+  /**
+   * Quiz «Che Rom-Com sei?»: ogni risposta dà punti al film principale e a quello affine.
+   * Vince il film con più punti; in parità quello con più associazioni principali;
+   * poi il film principale delle domande in ordine di priorità (es. 5, 3, 1, 2, 4, 6); infine l'ordine dei profili.
+   */
   computeProfile(sid) {
     const ses = this.s.sessions[sid];
     if (!ses) return null;
-    const order = (this.config.domandeAB || []).map((q) => q.id).filter((q) => ses.ab[q]);
-    if (!order.length) return null;
-    const score = Object.fromEntries(this.config.profili.map((p) => [p.id, 0]));
-    for (const q of order) for (const [pid, w] of Object.entries(this.abById[q][ses.ab[q]].profili || {})) score[pid] += w;
+    const qs = this.config.domandeAB || [];
+    const answered = qs.filter((q) => ses.ab[q.id]);
+    if (!answered.length) return null;
+    const P = this.config.quizPunteggi || { principale: 2, secondario: 1 };
+    const ids = this.config.profili.map((p) => p.id);
+    const score = Object.fromEntries(ids.map((id) => [id, 0]));
+    const primary = Object.fromEntries(ids.map((id) => [id, 0]));
+    const pick = (q) => q.opzioni['ABCDEFGH'.indexOf(ses.ab[q.id])];
+    for (const q of answered) {
+      const o = pick(q);
+      if (!o) continue;
+      if (score[o.principale] != null) { score[o.principale] += P.principale; primary[o.principale]++; }
+      if (score[o.secondario] != null) score[o.secondario] += P.secondario;
+    }
     const max = Math.max(...Object.values(score));
-    let tied = Object.keys(score).filter((p) => score[p] === max);
-    for (let k = order.length - 1; k >= 0 && tied.length > 1; k--) {
-      const w = this.abById[order[k]][ses.ab[order[k]]].profili || {};
-      const best = Math.max(...tied.map((p) => w[p] || 0));
-      tied = tied.filter((p) => (w[p] || 0) === best);
+    let tied = ids.filter((id) => score[id] === max);
+    if (tied.length > 1) { const m = Math.max(...tied.map((id) => primary[id])); tied = tied.filter((id) => primary[id] === m); }
+    for (const qid of (P.spareggio || qs.map((q) => q.id))) {
+      if (tied.length <= 1) break;
+      const q = this.abById[qid];
+      const o = q && ses.ab[qid] && pick(q);
+      if (o && tied.includes(o.principale)) tied = [o.principale];
     }
     const prof = this.config.profili.find((p) => p.id === tied[0]);
-    return { ...prof, score, answered: order.length, total: this.config.domandeAB.length };
+    return { ...prof, score, answered: answered.length, total: qs.length };
   }
 
   personal(sid) {
@@ -507,6 +533,7 @@ export class ShowEngine {
       sugarfreeLocked: s.sugarfreeLocked,
       adjustments: s.adjustments,
       standings: this.computeStandings(),
+      parita: tiesOf(this.computeStandings().coppie),
       genStats: this.genStats(),
       led: { preview: this.resolveScene(s.led.preview), program: this.resolveScene(s.led.program) },
       verdictPublished: s.verdictPublished,
@@ -520,6 +547,13 @@ export class ShowEngine {
 function blankReaction(config) {
   const z = () => Object.fromEntries(config.reazioni.emoji.map((e) => [e.id, 0]));
   return { points: 0, taps: 0, raw: z(), valid: z() };
+}
+
+/** Gruppi di squadre con lo stesso totale (prima di qualsiasi spareggio). */
+export function tiesOf(teams) {
+  const by = {};
+  for (const t of teams) (by[t.totale] ||= []).push(t.nome);
+  return Object.entries(by).filter(([, n]) => n.length > 1).map(([tot, nomi]) => ({ totale: Number(tot), squadre: nomi })).sort((a, b) => b.totale - a.totale);
 }
 
 export function letter(i) { return 'ABCDEFGH'[i] || String(i); }
