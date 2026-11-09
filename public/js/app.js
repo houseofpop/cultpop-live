@@ -176,11 +176,13 @@ function header() {
   return `<header class="top"><img class="logo" src="/img/logo.webp" alt="Cult Pop"><div class="live-pill ${SHOW === 'prova' ? 'prova' : ''}">${SHOW === 'prova' ? 'PROVA' : 'LIVE'}</div></header>`;
 }
 
+let introEnter = false; // dopo l'intro animata le regole entrano in sequenza
 function renderIntro() {
+  const enter = introEnter; introEnter = false;
   $app.innerHTML = `
-    <section class="intro">
+    <section class="intro${enter ? ' enter' : ''}">
       <div class="hero" role="img" aria-label="Cult Pop presenta"></div>
-      <h1>${esc(cfg.show.titolo)}</h1>
+      <h1>${esc(cfg.show.titolo).replace(/Gen Z/g, 'Gen&nbsp;Z')}</h1>
       <p class="sub">${esc(cfg.show.sottotitolo)}</p>
       <ol class="rules">${cfg.show.regole.map((r, i) => `<li><b>${i + 1}</b>${esc(r)}</li>`).join('')}</ol>
       <button class="btn viola" id="go">Inizia</button>
@@ -550,15 +552,17 @@ function renderSplash() {
       </div>
       ${marquee.replace('sp-mq', 'sp-mq bot')}
     </div>
+    <i class="sp-iris" aria-hidden="true"></i>
     <button class="sp-skip" type="button">Salta</button>`;
   host.appendChild(el);
   let ended = false;
   const end = () => {
     if (ended) return; ended = true;
     store.set(K('splash'), '1'); splashDone = true;
+    // uscita morbida: il grazie sfuma, un cerchio viola copre il nero, sotto compaiono le regole e il viola si dissolve
     el.classList.add('out');
-    setTimeout(() => el.remove(), 450);
-    render(true);
+    setTimeout(() => { introEnter = true; render(true); el.classList.add('gone'); }, reduce ? 150 : 820);
+    setTimeout(() => el.remove(), reduce ? 500 : 1500);
   };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const t1 = setTimeout(() => el.classList.add('b'), reduce ? 1800 : 3900);
