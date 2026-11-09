@@ -545,7 +545,7 @@ function renderSplash() {
       <i class="sp-glint g1">✦</i><i class="sp-glint g2">✦</i><i class="sp-glint g3">✦</i><i class="sp-glint g4">✦</i><i class="sp-glint g5">✦</i>
       <div class="sp-mid">
         ${it.logoPartner ? `<img class="sp-partner" src="${esc(asset(it.logoPartner))}" alt="${esc(it.nomePartner || '')}">` : ''}
-        ${it.fotoPersona ? `<div class="sp-person"><i class="sp-spot"></i><img src="${esc(asset(it.fotoPersona))}" alt="${esc(it.nomePersona || '')}">${it.nomePersona ? `<span class="sp-name">${esc(it.nomePersona.toUpperCase())}</span>` : ''}</div>` : ''}
+        ${it.fotoPersona ? `<div class="sp-person"><i class="sp-spot"></i><img src="${esc(asset(it.fotoPersona))}" alt="${esc(it.nomePersona || '')}"></div>` : ''}
         <p class="sp-thanks">${thanks}</p>
       </div>
       ${marquee.replace('sp-mq', 'sp-mq bot')}
