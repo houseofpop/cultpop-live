@@ -242,6 +242,57 @@ body { -webkit-user-select: none; user-select: none; }
   .quiz-opts { gap: 8px; }
   .quiz-opts .opt { padding: 10px 12px; font-size: .95rem; }
   .quiz-q { padding: 12px 14px; }
+  /* regole */
+  .hero { width: min(calc(100% + 32px), calc(23vh * 960 / 560)); margin: 0 auto; } /* immagine intera, più piccola: logo e PRESENTA non vengono tagliati */
+  .intro h1 { font-size: 1.6rem; margin: 12px 0 2px; }
+  .intro .sub { margin: 0 0 12px; }
+  .rules { gap: 9px; margin: 0 0 16px; }
+  .rules li { padding: 9px 12px; font-size: .98rem; }
+  .rules b { flex-basis: 32px; height: 32px; font-size: 1.05rem; }
+  /* profilo: rotellina a 4 righe (il margine sopra e sotto = metà altezza − mezza riga) */
+  .profile { gap: 10px; }
+  .profile .field-label { font-size: 1.05rem; }
+  .nick { padding: 11px 14px; font-size: 1.2rem; }
+  .wheel { height: 208px; }
+  .wheel-pad { height: 78px; }
+  /* generazione */
+  .gen-img { height: clamp(130px, 28vh, 340px); }
+  .congrats { font-size: 1.15rem; }
+  .gen-name { font-size: 1.7rem; }
+  /* SOS: le 4 risposte sempre visibili durante i 30 secondi */
+  .sos-screen { gap: 10px; }
+  .sos-screen .q-text { font-size: clamp(1.05rem, 5vw, 1.4rem); padding: 11px 14px; }
+  .sos-opts { gap: 8px; }
+  .sos-opts .opt { padding: 9px 12px; font-size: 1rem; }
+  .sos-opts .opt b { flex-basis: 36px; height: 36px; }
+  .timer svg { width: 50px; height: 50px; } .timer .num { font-size: 1.6rem; }
+  /* quiz */
+  .quiz-opts .opt { padding: 8px 11px; font-size: .92rem; }
+  .quiz-opts .opt b { flex-basis: 36px; height: 36px; font-size: 1.2rem; }
+}
+/* telefoni molto bassi (iPhone SE prima serie, schermi con barre grandi) */
+@media (max-height: 600px) {
+  .top { padding: 8px 4px 2px; }
+  .top .logo { height: 42px; }
+  .hero { width: min(calc(100% + 32px), calc(19vh * 960 / 560)); }
+  .grid { gap: 8px; } .kid .name { font-size: .8rem; padding: 4px 3px 5px; }
+  .selected-line { margin: 8px 4px 8px; font-size: 1.05rem; }
+  .emo { font-size: 2.1rem; padding: 7px 0 5px; }
+  .rx-tip { display: none; }
+  .intro h1 { font-size: 1.4rem; margin-top: 8px; }
+  .rules li { padding: 7px 10px; font-size: .9rem; }
+  .wheel { height: 156px; }
+  .wheel-pad { height: 52px; }
+  .q-screen { gap: 8px; padding-bottom: 12px; }
+  .tip { display: none; }
+  .gen-img { height: clamp(110px, 22vh, 340px); }
+  .gen-quote { font-size: .92rem; padding: 9px 12px; }
+  .sos-screen .q-text { font-size: 1rem; }
+  .sos-opts .opt { padding: 7px 10px; font-size: .92rem; }
+  .sos-opts .opt b, .quiz-opts .opt b { flex-basis: 32px; height: 32px; font-size: 1.05rem; }
+  .quiz-q { font-size: 1.15rem; padding: 9px 12px; }
+  .quiz-opts { gap: 6px; }
+  .quiz-opts .opt { padding: 6px 9px; font-size: .85rem; }
 }
 
 /* niente sbordi: nessun elemento esce dalla colonna del contenuto */

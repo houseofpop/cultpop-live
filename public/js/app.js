@@ -100,7 +100,8 @@ async function keepAwake() {
   try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => (wakeLock = null)); } }
   catch { /* non supportato o rifiutato: pazienza */ }
 }
-const buzz = (p) => { try { navigator.vibrate?.(p); } catch { /* iPhone: non supportato */ } };
+// vibra solo dopo il primo tocco (prima il browser la blocca e lo segnala come errore); iPhone: non supportato
+const buzz = (p) => { try { if (navigator.userActivation?.hasBeenActive !== false) navigator.vibrate?.(p); } catch { /* */ } };
 
 // ---------- reazioni: accumulo e invio a pacchetti ----------
 setInterval(() => {
