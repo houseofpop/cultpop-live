@@ -211,10 +211,31 @@ function renderLive() {
       <div class="kpi">Hanno inserito l'anno<b>${A.genStats.total}</b></div>
       <div class="kpi">Tap totali<b>${taps}</b></div>
     </div>
+    ${sosAfterBox()}
     ${A.reactionsLocked ? '<p class="result tie">Reazioni BLOCCATE</p>' : ''}
     ${A.audienceFrozen ? '<p class="result tie">Voti del pubblico CHIUSI: punti congelati</p>' : ''}
     <table class="rx-table"><thead><tr><th>Gen Z</th>${em.map((e) => `<th>${e.simbolo} ${e.punti > 0 ? '+' : ''}${e.punti}</th>`).join('')}<th>Punti</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="muted">Reazioni valide / tap totali. Limite: ${cfg.reazioni.rateLimit.reazioniValide} reazioni valide ogni ${cfg.reazioni.rateLimit.finestraSecondi}s per persona.</p>`);
+}
+
+// Dopo il ritorno automatico alle reazioni, l'ultimo SOS resta gestibile: percentuali e risposta giusta sul LED quando vuoi tu.
+function sosAfterBox() {
+  const s = A.sos;
+  if (!s || !s.closed || s.revealed || A.mode === 'finale') return '';
+  const def = cfg.sos.find((x) => x.id === s.sosId);
+  if (!def) return '';
+  const onLed = A.led.program?.type === 'sos' && A.led.program.runId === s.runId;
+  const top = s.result?.top || [];
+  const tot = s.voters || 1;
+  return `<div class="sos-after">
+    <b>🆘 Ultimo SOS · ${esc(teamName(s.teamId))}</b>
+    <span class="muted">${!top.length ? 'Nessun voto' : s.result.tie ? `Pubblico diviso tra ${top.map((i) => L[i]).join(' e ')}` : `Il pubblico ha scelto ${L[top[0]]} (${Math.round((s.result.max / tot) * 100)}%)`} · risposta giusta: ${L[def.corretta]}. ${esc(def.opzioni[def.corretta])}</span>
+    <div class="row wrap">
+      ${onLed ? '<span class="muted">🖥 Sul LED ci sono le percentuali</span>' : '<button class="tbtn" data-act="sosToLed">Prepara le percentuali per il LED</button>'}
+      <button class="tbtn warn" data-act="sosReveal">Rivela risposta corretta (${L[def.corretta]}) sul LED</button>
+    </div>
+    ${onLed ? '' : '<span class="muted">La risposta giusta compare sulla scena SOS del LED: se sul LED c\'è altro, prima prepara e pubblica le percentuali.</span>'}
+  </div>`;
 }
 
 function renderSosPanel(P) {

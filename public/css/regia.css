@@ -66,6 +66,8 @@ body { background: #f1efec; font-size: 15px; }
 .big-timer { font-size: 4rem; font-weight: 900; line-height: 1; }
 .result { padding: 14px; border-radius: 12px; font-weight: 900; font-size: 1.3rem; border: 3px solid var(--inchiostro); background: var(--lime); }
 .result.tie { background: var(--giallo); }
+.sos-after { display: grid; gap: 8px; margin: 0 0 14px; padding: 12px 14px; border: 3px solid var(--inchiostro); border-radius: 12px; background: #fff7d6; }
+.sos-after > b { font-size: 1.1rem; }
 .q-big { font-size: 1.4rem; font-weight: 900; margin: 6px 0 10px; }
 
 /* punteggi */
