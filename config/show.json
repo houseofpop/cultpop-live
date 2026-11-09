@@ -24,7 +24,14 @@
       "testoLed": "Ma gli Sugarfree possono confermare o ribaltare il risultato…",
       "immagineLed": "img/chiuse-centro.webp"
     },
-    "contatoreMinimo": 10
+    "contatoreMinimo": 10,
+    "intro": {
+      "attiva": true,
+      "presenta": "PRESENTA",
+      "ringraziamento": "Grazie a Just Entertainment per averci ospitato",
+      "logoPartner": "img/je-logo.webp",
+      "nomePartner": "Just Entertainment"
+    }
   },
   "coppie": [
     {

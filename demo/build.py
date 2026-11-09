@@ -102,6 +102,8 @@ for c in cfg['concorrenti']:
     c['foto'] = IMG.get('/' + c['foto'], c['foto'])
 if cfg['show'].get('gifVotiChiusi'):
     cfg['show']['gifVotiChiusi'] = IMG.get('/' + cfg['show']['gifVotiChiusi'], cfg['show']['gifVotiChiusi'])
+itc = cfg['show'].get('intro', {})
+if itc.get('logoPartner'): itc['logoPartner'] = IMG.get('/' + itc['logoPartner'], itc['logoPartner'])
 vcc = cfg['show'].get('votazioniChiuse', {})
 if vcc.get('immagineLed'): vcc['immagineLed'] = IMG.get('/' + vcc['immagineLed'], vcc['immagineLed'])
 for pr in cfg.get('profili', []):

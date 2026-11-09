@@ -138,7 +138,8 @@ function tap(eid, btn) {
 function render(force = false) {
   if (!cfg || !state) return;
   let v;
-  if (!me.nick && !introDone) v = 'intro';
+  if (!me.nick && !introDone && splashDue()) v = 'splash';
+  else if (!me.nick && !introDone) v = 'intro';
   else if (!me.nick) v = 'profilo';
   else if (state.mode === 'sos' && state.sos) v = `sos:${state.sos.runId}${sosOver() ? ':chiuso' : ''}`;
   else if (store.get(K('reveal')) !== profileKey()) v = 'generazione'; // ogni nuovo profilo rivede la sua generazione
@@ -152,7 +153,8 @@ function render(force = false) {
     const prev = view;
     view = v;
     scroller().scrollTop = 0;
-    if (v === 'intro') renderIntro();
+    if (v === 'splash') renderSplash();
+    else if (v === 'intro') renderIntro();
     else if (v === 'profilo') renderProfile();
     else if (v === 'generazione') renderGeneration();
     else if (v === 'carta') renderIdCard();
@@ -512,6 +514,47 @@ applyPaper();
 let paperT;
 let paperW = innerWidth;
 addEventListener('resize', () => { if (Math.abs(innerWidth - paperW) < 40) return; paperW = innerWidth; clearTimeout(paperT); paperT = setTimeout(applyPaper, 400); }); // solo se cambia la larghezza (rotazione), non per la barra degli indirizzi
+
+// ---------- intro animata: Cult Pop presenta, poi il grazie a chi ci ospita (solo la prima volta) ----------
+let splashDone = false;
+const splashDue = () => !splashDone && cfg?.show?.intro?.attiva !== false && store.get(K('splash')) !== '1';
+function renderSplash() {
+  if (document.querySelector('.splash')) return; // già in corso (es. riconnessione)
+  const it = cfg.show.intro || {};
+  const host = document.getElementById('phoneScreen') || document.body;
+  const el = document.createElement('div');
+  el.className = 'splash ' + (host === document.body ? 'fixed' : 'abs');
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-label', `Cult Pop presenta ${cfg.show.titolo}. ${it.ringraziamento || ''}`);
+  el.innerHTML = `
+    <div class="sp-a">
+      <i class="sp-dot d1"></i><i class="sp-dot d2"></i><i class="sp-dot d3"></i><i class="sp-dot d4"></i><i class="sp-dot d5"></i><i class="sp-dot d6"></i>
+      <span class="sp-plus p1">+</span><span class="sp-plus p2">+</span>
+      <img class="sp-logo" src="/img/logo.webp" alt="">
+      <div class="sp-presenta"><span>${esc(it.presenta || 'PRESENTA')}</span></div>
+      <h1 class="sp-title"><span class="l1">${esc(cfg.show.titolo).replace(/Gen Z/g, 'Gen&nbsp;Z')}</span></h1>
+      <div class="sp-stamp">${esc((cfg.show.sottotitolo || '').toUpperCase())}</div>
+    </div>
+    <div class="sp-b">
+      ${it.logoPartner ? `<img class="sp-partner" src="${esc(asset(it.logoPartner))}" alt="${esc(it.nomePartner || '')}">` : ''}
+      <p class="sp-thanks">${esc(it.ringraziamento || '')}</p>
+    </div>
+    <button class="sp-skip" type="button">Salta</button>`;
+  host.appendChild(el);
+  let ended = false;
+  const end = () => {
+    if (ended) return; ended = true;
+    store.set(K('splash'), '1'); splashDone = true;
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 450);
+    render(true);
+  };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const t1 = setTimeout(() => el.classList.add('b'), reduce ? 1800 : 3900);
+  const t2 = setTimeout(end, reduce ? 4200 : 6900);
+  el.addEventListener('click', () => { clearTimeout(t1); clearTimeout(t2); end(); });
+  buzz(12);
+}
 
 // ---------- condivisione ----------
 async function shareBlob(blob, name, text, saveId) {
