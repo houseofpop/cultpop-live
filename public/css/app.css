@@ -243,3 +243,6 @@ body { -webkit-user-select: none; user-select: none; }
   .quiz-opts .opt { padding: 10px 12px; font-size: .95rem; }
   .quiz-q { padding: 12px 14px; }
 }
+
+/* niente sbordi: nessun elemento esce dalla colonna del contenuto */
+#app { overflow-x: clip; }

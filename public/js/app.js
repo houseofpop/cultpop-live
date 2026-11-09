@@ -2,6 +2,7 @@
 // Percorso: regole → nickname e anno → generazione → reazioni (tutto lo show) → SOS quando li lancia la regia → finale.
 import { makeCard } from './card.js';
 import { makeIdCard, loadPhoto } from './idcard.js';
+import { paper, scribble, plus, C } from './deco.js';
 
 const params = new URLSearchParams(location.search);
 const SHOW = params.get('show') === 'prova' ? 'prova' : 'live';
@@ -490,6 +491,27 @@ async function renderFinal() {
     </section>`;
   document.getElementById('quiz').onclick = () => setFinal(done ? 'card' : 'quiz');
 }
+
+// ---------- sfondo: lo stesso collage di carta strappata del LED, a tutto schermo ----------
+function applyPaper() {
+  const host = document.getElementById('phoneScreen') || document.body;
+  const w = Math.min(host.clientWidth || innerWidth, 1600), h = Math.max(innerHeight, 760) * 2.2;
+  const k = Math.min(2, devicePixelRatio || 1);
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+  const ctx = cv.getContext('2d');
+  paper(ctx, cv.width, cv.height, 21);
+  const u = Math.min(cv.width, 500 * k) / 400; // decorazioni della stessa misura su telefono e computer
+  scribble(ctx, cv.width * 0.8, cv.height * 0.33, 120 * u, 34 * u, C.lime, 6 * u, 8);
+  scribble(ctx, -10 * u, cv.height * 0.42, 110 * u, 32 * u, C.lime, 6 * u, 3);
+  plus(ctx, cv.width * 0.9, cv.height * 0.3, 9 * u, C.fucsia, 3 * u);
+  plus(ctx, cv.width * 0.08, cv.height * 0.12, 7 * u, C.fucsia, 3 * u);
+  Object.assign(host.style, { backgroundImage: `url(${cv.toDataURL('image/jpeg', 0.82)})`, backgroundSize: '100% auto', backgroundRepeat: 'no-repeat', backgroundPosition: 'top center', backgroundColor: '#d8d6d3', backgroundAttachment: 'scroll' });
+}
+applyPaper();
+let paperT;
+let paperW = innerWidth;
+addEventListener('resize', () => { if (Math.abs(innerWidth - paperW) < 40) return; paperW = innerWidth; clearTimeout(paperT); paperT = setTimeout(applyPaper, 400); }); // solo se cambia la larghezza (rotazione), non per la barra degli indirizzi
 
 // ---------- condivisione ----------
 async function shareBlob(blob, name, text, saveId) {
