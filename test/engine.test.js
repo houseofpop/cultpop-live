@@ -209,11 +209,22 @@ test('quiz Rom-Com: tutte le 4096 combinazioni danno un risultato, e tutti gli 8
   assert.equal(Object.keys(seen).length, 8);
 });
 
-test('SOS: dopo la chiusura i telefoni tornano da soli alle reazioni dopo 10 secondi', () => {
+test('SOS: dopo la chiusura i telefoni restano su «Guarda il LED» finché la regia non li riporta alle reazioni', () => {
   const { e, clock } = make();
   e.startSos('sos1', 't1');
   clock.advance(31_000); e.tick(); // chiuso
+  clock.advance(10 * 60_000); e.tick();
   assert.equal(e.s.mode, 'sos');
+  e.revealSosAnswer();
+  e.goReactions();
+  assert.equal(e.s.mode, 'reazioni');
+});
+
+test('SOS: il ritorno automatico funziona ancora se lo si riattiva da config', () => {
+  const { e, clock } = make();
+  e.config.sosRitornoAutomaticoSecondi = 10;
+  e.startSos('sos1', 't1');
+  clock.advance(31_000); e.tick();
   clock.advance(9_000); e.tick();
   assert.equal(e.s.mode, 'sos');
   clock.advance(1_500); e.tick();

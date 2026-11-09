@@ -274,8 +274,9 @@ function tiesIn(teams) {
 }
 
 function autoBackText(s) {
-  const sec = cfg.sosRitornoAutomaticoSecondi ?? 10;
+  const sec = cfg.sosRitornoAutomaticoSecondi ?? 0;
   if (!s.closed || !s.closedAt || A.mode !== 'sos') return '';
+  if (sec <= 0) return 'I telefoni restano su «Guarda il LED» finché non premi «Telefoni su Reazioni ora».';
   const left = Math.max(0, Math.ceil((s.closedAt + sec * 1000 - (Date.now() + offset)) / 1000));
   return `I telefoni tornano da soli alle reazioni tra ${left} s (sul LED restano i risultati).`;
 }

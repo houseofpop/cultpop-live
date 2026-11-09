@@ -502,7 +502,7 @@
     }
   ],
   "_domandeAB_nota": "Quiz «Che Rom-Com sei?» (6 domande, 4 risposte, 8 film): lo fa ognuno da solo nel finale.",
-  "sosRitornoAutomaticoSecondi": 10,
+  "sosRitornoAutomaticoSecondi": 0,
   "quizPunteggi": {
     "principale": 2,
     "secondario": 1,
