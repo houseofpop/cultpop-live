@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Genera gli effetti sonori del LED (sintetizzati da zero: nessun diritto d'autore).
-Uso: python3 scripts/suoni.py  → public/audio/*.mp3
+ATTENZIONE: i suoni in uso ora sono quelli scelti da Magnific (originali in assets/originali/suoni-magnific).
+Questo script li sovrascriverebbe con quelli sintetizzati: parte solo con --sovrascrivi.
+Uso: python3 scripts/suoni.py --sovrascrivi  → public/audio/*.mp3
 Per usare suoni vostri basta sostituire i file (stessi nomi) o cambiare i percorsi in config/show.json → show.suoni."""
 import numpy as np, subprocess, pathlib, wave, tempfile, json
 
@@ -80,6 +82,9 @@ def save(name, x, peak_db=-1.0, extra_db=0):
     pathlib.Path(tmp).unlink()
     print('ok', name, f'{len(x) / SR:.1f}s')
 
+import sys
+if '--sovrascrivi' not in sys.argv:
+    sys.exit('Non sovrascrivo i suoni Magnific in public/audio: aggiungi --sovrascrivi se vuoi davvero quelli sintetizzati.')
 OUT.mkdir(parents=True, exist_ok=True)
 # 1. SOS: allarme da quiz, tre colpi che salgono + accordo
 save('sos', mix(1.6, (0, chord([N['C5'], N['E5']], .14, saw)), (.16, chord([N['D5'], N['F5']], .14, saw)), (.32, chord([N['E5'], N['G5']], .14, saw)),
