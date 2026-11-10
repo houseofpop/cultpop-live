@@ -25,6 +25,7 @@
       "immagineLed": "img/chiuse-centro.webp"
     },
     "contatoreMinimo": 10,
+    "suoniAttivi": false,
     "suoni": {
       "sos": "audio/sos.mp3",
       "fine-sos": "audio/fine-sos.mp3",

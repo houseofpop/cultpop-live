@@ -42,7 +42,7 @@
         env.config = msg.config || env.config;
         env.qr = msg.qr || env.qr;
         await prepareAssets(env.config, env.qr);
-        sounds.load(env.config?.show?.suoni);
+        if (env.config?.show?.suoniAttivi !== false) sounds.load(env.config?.show?.suoni); // con suoniAttivi: false il LED resta muto
       }
       const p = msg.state?.program;
       if (!p) return;
@@ -102,7 +102,7 @@
       document.getElementById('help').innerHTML =
         `<b>Cult Pop LIVE · pagina LED</b><br>Connessione: ${connected ? 'OK' : 'ASSENTE' + (err ? ' (' + err + ')' : '')}<br>` +
         `Risoluzione: ${size.width}×${size.height}${transparent ? ' · sfondo trasparente' : ''}<br>` +
-        `Audio: ${sounds.state()}<br>` +
+        `Audio: ${env.config?.show?.suoniAttivi === false ? 'spento (suoniAttivi: false in config)' : sounds.state()}<br>` +
         `Tasti: H aiuto · F schermo intero · P scarica PNG`;
     }
     help();
