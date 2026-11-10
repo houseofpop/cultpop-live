@@ -25,6 +25,16 @@
       "immagineLed": "img/chiuse-centro.webp"
     },
     "contatoreMinimo": 10,
+    "suoni": {
+      "sos": "audio/sos.mp3",
+      "fine-sos": "audio/fine-sos.mp3",
+      "risposta": "audio/risposta.mp3",
+      "whoosh": "audio/whoosh.mp3",
+      "chiuse": "audio/chiuse.mp3",
+      "rullo": "audio/rullo.mp3",
+      "colpo": "audio/colpo.mp3",
+      "fanfara": "audio/fanfara.mp3"
+    },
     "intro": {
       "attiva": true,
       "presenta": "PRESENTA",

@@ -21,7 +21,8 @@
   <script type="module">
     // Pagina per il LED wall: il tecnico la carica come sorgente web (o la mostra a tutto schermo da un portatile).
     // Mostra SOLO ciò che la regia ha pubblicato. Se la connessione cade, resta l'ultima immagine (nessun avviso visibile in onda).
-    import { drawScene, prepareAssets, downloadPng } from '/js/led.js';
+    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS } from '/js/led.js';
+    import { createSounds } from '/js/suoni.js';
     const q = new URLSearchParams(location.search);
     const size = { width: Number(q.get('w')) || 1920, height: Number(q.get('h')) || 1080 };
     const transparent = q.get('trasparente') === '1';
@@ -29,6 +30,10 @@
     const cv = document.getElementById('cv');
     const env = { config: null, qr: null, now: () => Date.now() + offset, closedSeenAt: null };
     let scene = null, sceneKey = '', sceneStart = performance.now(), offset = 0, connected = false;
+    // suoni: attivi di base, &audio=0 per toglierli, &volume=0.5 per abbassarli
+    const sounds = createSounds({ enabled: q.get('audio') !== '0', volume: q.has('volume') ? Number(q.get('volume')) : 1 });
+    let primed = false; // il primo stato ricevuto (apertura o riconnessione) non fa suonare niente
+    let sosSeen = { key: '', closed: false, corretta: null };
 
     const socket = io('/schermo', { auth: { key: q.get('key'), show: q.get('show') || 'live' }, reconnectionDelayMax: 3000 });
     socket.on('screen', async (msg) => {
@@ -37,16 +42,50 @@
         env.config = msg.config || env.config;
         env.qr = msg.qr || env.qr;
         await prepareAssets(env.config, env.qr);
+        sounds.load(env.config?.show?.suoni);
       }
       const p = msg.state?.program;
       if (!p) return;
       const key = `${p.type}:${p.publishedAt || p.t}:${p.runId || ''}`;
-      if (key !== sceneKey) { sceneKey = key; sceneStart = performance.now(); env.closedSeenAt = null; }
+      if (key !== sceneKey) {
+        sceneKey = key; sceneStart = performance.now(); env.closedSeenAt = null;
+        if (primed) onSceneStart(p);
+      }
       scene = p;
+      if (p.type === 'sos' && p.sos) watchSos(p, !primed || sosSeen.key !== key);
+      primed = true;
     });
     socket.on('connect', () => { connected = true; help(); });
     socket.on('disconnect', () => { connected = false; help(); });
     socket.on('connect_error', (e) => { connected = false; help(e.message); });
+
+    // ---------- suoni: quando entra una scena e nei momenti chiave dell'SOS ----------
+    function onSceneStart(p) {
+      sounds.stopAll();
+      if (p.type === 'sos') sounds.play(p.sos && !sosClosed(p.sos) ? 'sos' : 'whoosh');
+      else if (p.type === 'classifica' || p.type === 'generazioni') sounds.play('whoosh');
+      else if (p.type === 'chiuse') sounds.play('chiuse');
+      else if (p.type === 'verdetto') {
+        // rullo fino al 1°, un colpo per ogni posizione prima, fanfara sul vincitore (stessi tempi della grafica)
+        const n = new Set((p.standings?.coppie || []).map((t) => t.posizione)).size || 1;
+        const steps = VERDICT_STEPS.slice(Math.max(0, VERDICT_STEPS.length - n)).map((ms) => ms / 1000);
+        const lastAt = steps[steps.length - 1];
+        sounds.play('rullo', { stopAt: lastAt });
+        steps.slice(0, -1).forEach((s) => sounds.play('colpo', { at: s }));
+        sounds.play('fanfara', { at: lastAt });
+      }
+    }
+    const sosClosed = (s) => s.closed || env.now() >= s.endsAt;
+    // init = true: prende nota dello stato attuale senza suonare (apertura pagina o scena appena entrata)
+    function watchSos(p, init) {
+      const s = p.sos, closed = sosClosed(s);
+      if (!init && sosSeen.key === sceneKey) {
+        if (!sosSeen.closed && closed) sounds.play('fine-sos');
+        if (sosSeen.corretta == null && s.corretta != null) sounds.play('risposta');
+      }
+      sosSeen = { key: sceneKey, closed, corretta: s.corretta };
+    }
+    setInterval(() => { if (scene?.type === 'sos' && scene.sos) watchSos(scene, false); }, 100); // lo zero del countdown arriva prima del server
 
     let last = 0;
     function frame(now) {
@@ -63,9 +102,13 @@
       document.getElementById('help').innerHTML =
         `<b>Cult Pop LIVE · pagina LED</b><br>Connessione: ${connected ? 'OK' : 'ASSENTE' + (err ? ' (' + err + ')' : '')}<br>` +
         `Risoluzione: ${size.width}×${size.height}${transparent ? ' · sfondo trasparente' : ''}<br>` +
+        `Audio: ${sounds.state()}<br>` +
         `Tasti: H aiuto · F schermo intero · P scarica PNG`;
     }
     help();
+    // nei browser normali l'audio parte solo dopo un tasto o un clic (nei software di regia video di solito no)
+    for (const ev of ['keydown', 'pointerdown']) addEventListener(ev, () => { sounds.unlock(); setTimeout(help, 300); });
+    setInterval(help, 3000);
     addEventListener('keydown', (e) => {
       const k = e.key.toLowerCase();
       if (k === 'f') document.documentElement.requestFullscreen?.();
