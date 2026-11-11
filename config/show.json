@@ -33,6 +33,7 @@
       "sos": "audio/sos.mp3",
       "fine-sos": "audio/fine-sos.mp3",
       "risposta": "audio/risposta.mp3",
+      "sbagliata": "audio/sbagliata.mp3",
       "whoosh": "audio/whoosh.mp3",
       "chiuse": "audio/chiuse.mp3",
       "rullo": "audio/rullo.mp3",

@@ -86,7 +86,8 @@
       const s = p.sos, closed = sosClosed(s);
       if (!init && sosSeen.key === sceneKey) {
         if (!sosSeen.closed && closed) sounds.play('fine-sos');
-        if (sosSeen.corretta == null && s.corretta != null) sounds.play('risposta');
+        // risposta rivelata: suono «giusto» se il pubblico l'aveva scelta (anche in parità), buzzer se aveva sbagliato
+        if (sosSeen.corretta == null && s.corretta != null) sounds.play(s.top?.length && !s.top.includes(s.corretta) ? 'sbagliata' : 'risposta');
       }
       sosSeen = { key: sceneKey, closed, corretta: s.corretta };
     }
