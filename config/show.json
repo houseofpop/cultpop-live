@@ -27,7 +27,6 @@
     "contatoreMinimo": 10,
     "suoniAttivi": { "prova": true, "live": false },
     "siglaLoopDa": 2.775,
-    "tictacSecondi": 5,
     "suoni": {
       "sigla": "audio/sigla.wav",
       "squadra": "audio/squadra.mp3",

@@ -69,10 +69,10 @@
       else if (p.type === 'sos') {
         if (p.sos && sosClosed(p.sos)) sosResults(); // scena pubblicata a voto chiuso: le percentuali si riempiono da capo
         else sounds.play('sos');
-        // tic-tac negli ultimi secondi del countdown, si ferma esattamente allo zero (lì parte il buzzer)
+        // tic-tac da quando finisce il suono SOS fino allo zero (lì si ferma e parte il buzzer)
         const left = p.sos && !sosClosed(p.sos) ? (p.sos.endsAt - env.now()) / 1000 : 0;
-        const n = env.config?.show?.tictacSecondi ?? 5;
-        if (left > 0 && n > 0) sounds.play('tictac', { at: Math.max(0, left - n), stopAt: left, loopFrom: 0 });
+        const from = Math.min(sounds.duration('sos'), left);
+        if (left > 0) sounds.play('tictac', { at: from, stopAt: left, loopFrom: 0 });
       }
       else if (p.type === 'classifica') {
         (p.standings?.coppie || []).forEach((_, i) => sounds.play('squadra', { at: CLASSIFICA_STEPS(i) / 1000 })); // un suono per ogni squadra che entra

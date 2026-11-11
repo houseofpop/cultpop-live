@@ -2,7 +2,7 @@
 // L'audio esce dalla sorgente web come quello di un contributo video: il tecnico ne regola il volume nel suo mixer.
 export function createSounds({ enabled = true, volume = 1 } = {}) {
   const AC = window.AudioContext || window.webkitAudioContext;
-  const off = { load: async () => {}, play: () => {}, stop: () => {}, stopAll: () => {}, unlock: () => {}, state: () => 'spento (&audio=0)' };
+  const off = { load: async () => {}, play: () => {}, stop: () => {}, stopAll: () => {}, duration: () => 0, unlock: () => {}, state: () => 'spento (&audio=0)' };
   if (!enabled || !AC) return enabled ? { ...off, state: () => 'non supportato da questo browser' } : off;
   const ctx = new AC();
   const master = ctx.createGain();
@@ -64,5 +64,6 @@ export function createSounds({ enabled = true, volume = 1 } = {}) {
 
   const unlock = () => { if (ctx.state !== 'running') ctx.resume().catch(() => {}); };
   const state = () => (ctx.state === 'running' ? 'attivo' : 'BLOCCATO dal browser: premi un tasto o clicca la pagina');
-  return { load, play, stop, stopAll, unlock, state };
+  const duration = (name) => buffers[name]?.duration || 0;
+  return { load, play, stop, stopAll, unlock, state, duration };
 }
