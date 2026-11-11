@@ -270,6 +270,9 @@ function teamCard(g, t, conts, x, y, w, h, wide, i, details) {
 }
 
 // ---------- GENERAZIONI IN SALA ----------
+/** Quando parte ogni barra delle generazioni (ms): la pagina LED ci aggancia il «pop». */
+export const GENERAZIONI_STEPS = (i) => 300 + i * 220;
+
 function generazioni(g, scene) {
   const { ctx, W, H, u, env } = g;
   const y0 = title(g, 'CHI C\'È IN SALA STASERA?', 40 * u, { size: 80 });
@@ -288,7 +291,7 @@ function generazioni(g, scene) {
   gens.forEach((gn, i) => {
     const y = top + i * rowH;
     const pct = st.counts[gn.id] / st.total;
-    const k = ease((g.t - 300 - i * 220) / 1200);
+    const k = ease((g.t - GENERAZIONI_STEPS(i)) / 1200);
     const prog = g.el === Infinity ? 1 : k;
     ctx.font = `900 ${Math.min(44, rowH / u * 0.42) * u}px ${F}`;
     ctx.fillStyle = C.inchiostro; ctx.textAlign = 'right';
@@ -306,6 +309,8 @@ function generazioni(g, scene) {
 }
 
 // ---------- SOS: domanda + countdown, poi percentuali, poi risposta corretta ----------
+/** Percentuali dell'SOS: partono dopo il buzzer e si riempiono mentre suona «barre»; alla fine compare l'eventuale PARITÀ. */
+export const SOS_BARRE = { da: 500, durata: 3400 };
 function sos(g, scene) {
   const { ctx, W, H, u, env } = g;
   const s = scene.sos;
@@ -351,7 +356,7 @@ function sos(g, scene) {
   const oh = Math.min(150 * u, (H - oy - footer - gap) / 2);
   const total = s.counts ? s.counts.reduce((a, b) => a + b, 0) : 0;
   if (closed && g.el !== Infinity && !env.closedSeenAt) env.closedSeenAt = performance.now();
-  const kClosed = g.el === Infinity || !env.closedSeenAt ? 1 : ease((performance.now() - env.closedSeenAt) / 1400);
+  const kClosed = g.el === Infinity || !env.closedSeenAt ? 1 : ease((performance.now() - env.closedSeenAt - SOS_BARRE.da) / SOS_BARRE.durata);
   s.opzioni.forEach((o, i) => {
     const x = 70 * u + (i % cols) * (ow + gap), y = oy + Math.floor(i / cols) * (oh + gap);
     const isTop = closed && s.top?.includes(i);

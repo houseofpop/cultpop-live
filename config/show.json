@@ -30,18 +30,22 @@
     "tictacSecondi": 5,
     "suoni": {
       "sigla": "audio/sigla.wav",
-      "classifica": "audio/classifica.mp3",
       "squadra": "audio/squadra.mp3",
+      "whoosh": "audio/whoosh.mp3",
+      "pop": "audio/pop.mp3",
       "sos": "audio/sos.mp3",
-      "fine-sos": "audio/fine-sos.mp3",
       "tictac": "audio/tictac.wav",
+      "fine-sos": "audio/fine-sos.mp3",
+      "barre": "audio/barre.mp3",
       "risposta": "audio/risposta.mp3",
       "sbagliata": "audio/sbagliata.mp3",
-      "whoosh": "audio/whoosh.mp3",
+      "pari": "audio/pari.mp3",
       "chiuse": "audio/chiuse.mp3",
+      "comica": "audio/comica.wav",
       "rullo": "audio/rullo.mp3",
       "colpo": "audio/colpo.mp3",
-      "fanfara": "audio/fanfara.mp3"
+      "fanfara": "audio/fanfara.mp3",
+      "applauso": "audio/applauso.mp3"
     },
     "intro": {
       "attiva": true,

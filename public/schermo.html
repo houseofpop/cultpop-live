@@ -21,7 +21,7 @@
   <script type="module">
     // Pagina per il LED wall: il tecnico la carica come sorgente web (o la mostra a tutto schermo da un portatile).
     // Mostra SOLO ciò che la regia ha pubblicato. Se la connessione cade, resta l'ultima immagine (nessun avviso visibile in onda).
-    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS, CLASSIFICA_STEPS } from '/js/led.js';
+    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS, CLASSIFICA_STEPS, GENERAZIONI_STEPS, SOS_BARRE } from '/js/led.js';
     import { createSounds } from '/js/suoni.js';
     const q = new URLSearchParams(location.search);
     const size = { width: Number(q.get('w')) || 1920, height: Number(q.get('h')) || 1080 };
@@ -67,18 +67,22 @@
       sounds.stopAll();
       if (p.type === 'promo') sounds.play('sigla', { loopFrom: env.config?.show?.siglaLoopDa ?? 0 }); // la sigla gira in loop finché il QR resta sul LED
       else if (p.type === 'sos') {
-        sounds.play(p.sos && !sosClosed(p.sos) ? 'sos' : 'whoosh');
+        if (p.sos && sosClosed(p.sos)) sosResults(); // scena pubblicata a voto chiuso: le percentuali si riempiono da capo
+        else sounds.play('sos');
         // tic-tac negli ultimi secondi del countdown, si ferma esattamente allo zero (lì parte il buzzer)
         const left = p.sos && !sosClosed(p.sos) ? (p.sos.endsAt - env.now()) / 1000 : 0;
         const n = env.config?.show?.tictacSecondi ?? 5;
         if (left > 0 && n > 0) sounds.play('tictac', { at: Math.max(0, left - n), stopAt: left, loopFrom: 0 });
       }
       else if (p.type === 'classifica') {
-        sounds.play('classifica');
         (p.standings?.coppie || []).forEach((_, i) => sounds.play('squadra', { at: CLASSIFICA_STEPS(i) / 1000 })); // un suono per ogni squadra che entra
       }
-      else if (p.type === 'generazioni') sounds.play('whoosh');
-      else if (p.type === 'chiuse') sounds.play('chiuse');
+      else if (p.type === 'generazioni') {
+        sounds.play('whoosh');
+        const n = Object.values(p.stats?.counts || {}).filter((c) => c > 0).length; // una barra per ogni generazione presente
+        for (let i = 0; i < n; i++) sounds.play('pop', { at: GENERAZIONI_STEPS(i) / 1000 });
+      }
+      else if (p.type === 'chiuse') { sounds.play('chiuse'); sounds.play('comica', { at: 2.4, loopFrom: 0 }); } // rullo e piatto, poi la musica comica in loop finché la scena resta
       else if (p.type === 'verdetto') {
         // rullo fino al 1°, un colpo per ogni posizione prima, fanfara sul vincitore (stessi tempi della grafica)
         const n = new Set((p.standings?.coppie || []).map((t) => t.posizione)).size || 1;
@@ -87,14 +91,23 @@
         sounds.play('rullo', { stopAt: lastAt });
         steps.slice(0, -1).forEach((s) => sounds.play('colpo', { at: s }));
         sounds.play('fanfara', { at: lastAt });
+        sounds.play('applauso', { at: lastAt + 0.3 });
       }
     }
     const sosClosed = (s) => s.closed || env.now() >= s.endsAt;
+    // percentuali: «barre» mentre si riempiono; a fine riempimento, se il pubblico è diviso, «pari» (insieme alla scritta PARITÀ)
+    let pariTimer = null;
+    function sosResults() {
+      const key = sceneKey;
+      sounds.play('barre', { at: SOS_BARRE.da / 1000 });
+      clearTimeout(pariTimer);
+      pariTimer = setTimeout(() => { if (sceneKey === key && scene?.sos?.tie && scene.sos.corretta == null) sounds.play('pari'); }, SOS_BARRE.da + SOS_BARRE.durata);
+    }
     // init = true: prende nota dello stato attuale senza suonare (apertura pagina o scena appena entrata)
     function watchSos(p, init) {
       const s = p.sos, closed = sosClosed(s);
       if (!init && sosSeen.key === sceneKey) {
-        if (!sosSeen.closed && closed) { sounds.stop('tictac'); sounds.play('fine-sos'); } // anche se la regia chiude prima dello zero
+        if (!sosSeen.closed && closed) { sounds.stop('tictac'); sounds.play('fine-sos'); sosResults(); } // anche se la regia chiude prima dello zero
         // risposta rivelata: suono «giusto» se il pubblico l'aveva scelta (anche in parità), buzzer se aveva sbagliato
         if (sosSeen.corretta == null && s.corretta != null) sounds.play(s.top?.length && !s.top.includes(s.corretta) ? 'sbagliata' : 'risposta');
       }
