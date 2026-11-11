@@ -185,6 +185,9 @@ function promo(g) {
 }
 
 // ---------- CLASSIFICA (fotografata al momento della preparazione) ----------
+/** Quando entra ogni squadra in classifica (ms): la pagina LED ci aggancia il suono della squadra. */
+export const CLASSIFICA_STEPS = (i) => 350 + i * 450;
+
 function classifica(g, scene) {
   const { ctx, W, H, u, env } = g;
   const y0 = title(g, 'CLASSIFICA', 40 * u, { size: 86 });
@@ -199,7 +202,7 @@ function classifica(g, scene) {
     let x, y, w, h;
     if (wide) { const gap = 40 * u, cw = (W - gap * (teams.length + 1)) / teams.length; x = gap + i * (cw + gap); y = top; w = cw; h = bottom - top; }
     else { const gap = 30 * u, ch = (bottom - top - gap * (teams.length - 1)) / teams.length; x = 50 * u; y = top + i * (ch + gap); w = W - 100 * u; h = ch; }
-    const k = ease((g.t - i * 180) / 600);
+    const k = ease((g.t - CLASSIFICA_STEPS(i)) / 600);
     ctx.save();
     ctx.globalAlpha = g.el === Infinity ? 1 : k;
     ctx.translate(0, g.el === Infinity ? 0 : (1 - k) * 60 * u);

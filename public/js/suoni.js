@@ -2,7 +2,7 @@
 // L'audio esce dalla sorgente web come quello di un contributo video: il tecnico ne regola il volume nel suo mixer.
 export function createSounds({ enabled = true, volume = 1 } = {}) {
   const AC = window.AudioContext || window.webkitAudioContext;
-  const off = { load: async () => {}, play: () => {}, stopAll: () => {}, unlock: () => {}, state: () => 'spento (&audio=0)' };
+  const off = { load: async () => {}, play: () => {}, stop: () => {}, stopAll: () => {}, unlock: () => {}, state: () => 'spento (&audio=0)' };
   if (!enabled || !AC) return enabled ? { ...off, state: () => 'non supportato da questo browser' } : off;
   const ctx = new AC();
   const master = ctx.createGain();
@@ -39,7 +39,7 @@ export function createSounds({ enabled = true, volume = 1 } = {}) {
       g.gain.linearRampToValueAtTime(0, t1);
       src.stop(t1 + 0.05);
     }
-    const item = { src, g };
+    const item = { src, g, name };
     live.add(item);
     src.onended = () => live.delete(item);
   }
@@ -53,7 +53,16 @@ export function createSounds({ enabled = true, volume = 1 } = {}) {
     live.clear();
   }
 
+  /** Ferma un solo suono (es. il tic-tac se la regia chiude l'SOS prima dello zero). */
+  function stop(name, fade = 0.15) {
+    const now = ctx.currentTime;
+    for (const it of [...live]) if (it.name === name) {
+      try { it.g.gain.cancelScheduledValues(now); it.g.gain.setValueAtTime(it.g.gain.value, now); it.g.gain.linearRampToValueAtTime(0, now + fade); it.src.stop(now + fade + 0.05); } catch { /* */ }
+      live.delete(it);
+    }
+  }
+
   const unlock = () => { if (ctx.state !== 'running') ctx.resume().catch(() => {}); };
   const state = () => (ctx.state === 'running' ? 'attivo' : 'BLOCCATO dal browser: premi un tasto o clicca la pagina');
-  return { load, play, stopAll, unlock, state };
+  return { load, play, stop, stopAll, unlock, state };
 }

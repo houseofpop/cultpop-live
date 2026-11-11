@@ -21,7 +21,7 @@
   <script type="module">
     // Pagina per il LED wall: il tecnico la carica come sorgente web (o la mostra a tutto schermo da un portatile).
     // Mostra SOLO ciò che la regia ha pubblicato. Se la connessione cade, resta l'ultima immagine (nessun avviso visibile in onda).
-    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS } from '/js/led.js';
+    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS, CLASSIFICA_STEPS } from '/js/led.js';
     import { createSounds } from '/js/suoni.js';
     const q = new URLSearchParams(location.search);
     const size = { width: Number(q.get('w')) || 1920, height: Number(q.get('h')) || 1080 };
@@ -66,8 +66,17 @@
     function onSceneStart(p) {
       sounds.stopAll();
       if (p.type === 'promo') sounds.play('sigla', { loopFrom: env.config?.show?.siglaLoopDa ?? 0 }); // la sigla gira in loop finché il QR resta sul LED
-      else if (p.type === 'sos') sounds.play(p.sos && !sosClosed(p.sos) ? 'sos' : 'whoosh');
-      else if (p.type === 'classifica') sounds.play('classifica');
+      else if (p.type === 'sos') {
+        sounds.play(p.sos && !sosClosed(p.sos) ? 'sos' : 'whoosh');
+        // tic-tac negli ultimi secondi del countdown, si ferma esattamente allo zero (lì parte il buzzer)
+        const left = p.sos && !sosClosed(p.sos) ? (p.sos.endsAt - env.now()) / 1000 : 0;
+        const n = env.config?.show?.tictacSecondi ?? 5;
+        if (left > 0 && n > 0) sounds.play('tictac', { at: Math.max(0, left - n), stopAt: left, loopFrom: 0 });
+      }
+      else if (p.type === 'classifica') {
+        sounds.play('classifica');
+        (p.standings?.coppie || []).forEach((_, i) => sounds.play('squadra', { at: CLASSIFICA_STEPS(i) / 1000 })); // un suono per ogni squadra che entra
+      }
       else if (p.type === 'generazioni') sounds.play('whoosh');
       else if (p.type === 'chiuse') sounds.play('chiuse');
       else if (p.type === 'verdetto') {
@@ -85,7 +94,7 @@
     function watchSos(p, init) {
       const s = p.sos, closed = sosClosed(s);
       if (!init && sosSeen.key === sceneKey) {
-        if (!sosSeen.closed && closed) sounds.play('fine-sos');
+        if (!sosSeen.closed && closed) { sounds.stop('tictac'); sounds.play('fine-sos'); } // anche se la regia chiude prima dello zero
         // risposta rivelata: suono «giusto» se il pubblico l'aveva scelta (anche in parità), buzzer se aveva sbagliato
         if (sosSeen.corretta == null && s.corretta != null) sounds.play(s.top?.length && !s.top.includes(s.corretta) ? 'sbagliata' : 'risposta');
       }
