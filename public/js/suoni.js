@@ -22,12 +22,13 @@ export function createSounds({ enabled = true, volume = 1 } = {}) {
   }
 
   /** Suona `name` tra `at` secondi; se `stopAt` è dato, sfuma e si ferma a quel punto. Se il browser blocca l'audio non suona (niente suoni in ritardo). */
-  function play(name, { at = 0, stopAt = null, gain = 1 } = {}) {
+  function play(name, { at = 0, stopAt = null, gain = 1, loopFrom = null } = {}) {
     const b = buffers[name];
     if (!b || ctx.state !== 'running') return;
     const src = ctx.createBufferSource();
     const g = ctx.createGain();
     src.buffer = b;
+    if (loopFrom != null) { src.loop = true; src.loopStart = loopFrom; src.loopEnd = b.duration; } // musica: parte dall'inizio, poi ripete da loopFrom alla fine del file
     g.gain.value = gain;
     src.connect(g).connect(master);
     const t0 = ctx.currentTime + Math.max(0, at);
@@ -44,7 +45,7 @@ export function createSounds({ enabled = true, volume = 1 } = {}) {
   }
 
   /** Ferma tutto con una sfumatura breve (cambio scena). */
-  function stopAll(fade = 0.25) {
+  function stopAll(fade = 0.6) {
     const now = ctx.currentTime;
     for (const { src, g } of live) {
       try { g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value, now); g.gain.linearRampToValueAtTime(0, now + fade); src.stop(now + fade + 0.05); } catch { /* già fermo */ }

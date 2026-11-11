@@ -25,8 +25,11 @@
       "immagineLed": "img/chiuse-centro.webp"
     },
     "contatoreMinimo": 10,
-    "suoniAttivi": false,
+    "suoniAttivi": { "prova": true, "live": false },
+    "siglaLoopDa": 2.775,
     "suoni": {
+      "sigla": "audio/sigla.wav",
+      "classifica": "audio/classifica.mp3",
       "sos": "audio/sos.mp3",
       "fine-sos": "audio/fine-sos.mp3",
       "risposta": "audio/risposta.mp3",

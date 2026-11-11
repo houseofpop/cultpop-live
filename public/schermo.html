@@ -34,6 +34,8 @@
     const sounds = createSounds({ enabled: q.get('audio') !== '0', volume: q.has('volume') ? Number(q.get('volume')) : 1 });
     let primed = false; // il primo stato ricevuto (apertura o riconnessione) non fa suonare niente
     let sosSeen = { key: '', closed: false, corretta: null };
+    // suoniAttivi in config: true/false per tutti, oppure per show ({ "prova": true, "live": false })
+    const audioOn = () => { const a = env.config?.show?.suoniAttivi; return a == null ? true : typeof a === 'object' ? !!a[q.get('show') || 'live'] : !!a; };
 
     const socket = io('/schermo', { auth: { key: q.get('key'), show: q.get('show') || 'live' }, reconnectionDelayMax: 3000 });
     socket.on('screen', async (msg) => {
@@ -42,7 +44,8 @@
         env.config = msg.config || env.config;
         env.qr = msg.qr || env.qr;
         await prepareAssets(env.config, env.qr);
-        if (env.config?.show?.suoniAttivi !== false) sounds.load(env.config?.show?.suoni); // con suoniAttivi: false il LED resta muto
+        if (audioOn()) sounds.load(env.config?.show?.suoni); // con i suoni spenti per questo show il LED resta muto
+        help();
       }
       const p = msg.state?.program;
       if (!p) return;
@@ -62,8 +65,10 @@
     // ---------- suoni: quando entra una scena e nei momenti chiave dell'SOS ----------
     function onSceneStart(p) {
       sounds.stopAll();
-      if (p.type === 'sos') sounds.play(p.sos && !sosClosed(p.sos) ? 'sos' : 'whoosh');
-      else if (p.type === 'classifica' || p.type === 'generazioni') sounds.play('whoosh');
+      if (p.type === 'promo') sounds.play('sigla', { loopFrom: env.config?.show?.siglaLoopDa ?? 0 }); // la sigla gira in loop finché il QR resta sul LED
+      else if (p.type === 'sos') sounds.play(p.sos && !sosClosed(p.sos) ? 'sos' : 'whoosh');
+      else if (p.type === 'classifica') sounds.play('classifica');
+      else if (p.type === 'generazioni') sounds.play('whoosh');
       else if (p.type === 'chiuse') sounds.play('chiuse');
       else if (p.type === 'verdetto') {
         // rullo fino al 1°, un colpo per ogni posizione prima, fanfara sul vincitore (stessi tempi della grafica)
@@ -102,7 +107,7 @@
       document.getElementById('help').innerHTML =
         `<b>Cult Pop LIVE · pagina LED</b><br>Connessione: ${connected ? 'OK' : 'ASSENTE' + (err ? ' (' + err + ')' : '')}<br>` +
         `Risoluzione: ${size.width}×${size.height}${transparent ? ' · sfondo trasparente' : ''}<br>` +
-        `Audio: ${env.config?.show?.suoniAttivi === false ? 'spento (suoniAttivi: false in config)' : sounds.state()}<br>` +
+        `Audio: ${env.config && !audioOn() ? 'spento per questo show (suoniAttivi in config)' : sounds.state()}<br>` +
         `Tasti: H aiuto · F schermo intero · P scarica PNG`;
     }
     help();
