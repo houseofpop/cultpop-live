@@ -49,6 +49,7 @@ export function drawScene(cv, scene, env, { width = 1920, height = 1080, el = In
   else if (type === 'classifica') classifica(g, scene);
   else if (type === 'generazioni') generazioni(g, scene);
   else if (type === 'sos') sos(g, scene);
+  else if (type === 'quiz') quiz(g, scene);
   else if (type === 'verdetto') verdetto(g, scene);
   else if (type === 'chiuse') chiuse(g);
   return cv;
@@ -397,6 +398,138 @@ function sos(g, scene) {
   ctx.textAlign = 'left';
 }
 
+// ---------- QUIZ: domanda, risposte una alla volta, timer, lavagnette delle squadre, SOS sulla stessa domanda ----------
+function ring(g, cx, cy, R, left, total, { label = null, alert = 6000 } = {}) {
+  const { ctx, u } = g;
+  ctx.lineWidth = 24 * u; ctx.strokeStyle = 'rgba(23,18,31,.15)';
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+  const hot = left > 0 && left < alert;
+  ctx.strokeStyle = hot ? '#ff4d5e' : C.viola; ctx.lineCap = 'round';
+  if (left > 0) { ctx.beginPath(); ctx.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, left / Math.max(1, total))); ctx.stroke(); }
+  ctx.lineCap = 'butt';
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, R - 15 * u, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = hot || left <= 0 ? '#ff4d5e' : C.inchiostro; ctx.textAlign = 'center';
+  ctx.font = `900 ${(label ? 46 : 88) * u}px ${F}`;
+  ctx.fillText(label || String(Math.ceil(left / 1000)), cx, cy + (label ? 16 : 32) * u);
+  ctx.textAlign = 'left';
+}
+
+function quiz(g, scene) {
+  const { ctx, W, H, u, env } = g;
+  const z = scene.quiz;
+  if (!z) return promo(g);
+  const now = env.now ? env.now() : Date.now();
+  const anim = (at, dur = 420) => (g.el === Infinity || !at ? 1 : ease((now - at) / dur));
+  const y0 = title(g, `QUIZ · DOMANDA ${z.n} DI ${z.tot}`, 30 * u, { size: 70, color: C.viola });
+  logo(g, 40 * u, 24 * u, 130 * u);
+  const S = z.sos;
+  const sosVoting = S && !S.closed && now < S.endsAt;
+  if (S) tag(g, sosVoting ? `🆘 SOS · IL PUBBLICO AIUTA LA ${S.coppia.toUpperCase()}` : `🆘 SOS DELLA ${S.coppia.toUpperCase()}`, W / 2, y0, { bg: S.colore || C.lime, size: 28 });
+  if (!z.testo) return;
+  const wide = W / H > 1.3;
+  // cerchio a destra della domanda: countdown dell'SOS mentre si vota, altrimenti il timer del quiz
+  const T = z.timer;
+  const showRing = sosVoting || T;
+  const R = 92 * u;
+  const qx = 70 * u, qy = y0 + 62 * u;
+  const qw = W - 140 * u - (showRing && wide ? R * 2 + 50 * u : 0);
+  const kq = anim(z.shownAt?.[1], 500);
+  ctx.save(); ctx.globalAlpha = kq; ctx.translate(0, (1 - kq) * 30 * u);
+  ctx.font = `900 ${58 * u}px ${F}`;
+  const lines = wrapLines(ctx, z.testo, qw - 56 * u).slice(0, 3);
+  const qh = Math.max(130 * u, lines.length * 68 * u + 50 * u);
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(qx + 10 * u, qy + 10 * u, qw, qh);
+  ctx.fillStyle = '#fff'; ctx.fillRect(qx, qy, qw, qh);
+  ctx.lineWidth = 5 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(qx, qy, qw, qh);
+  ctx.fillStyle = C.inchiostro;
+  lines.forEach((l, i) => ctx.fillText(l, qx + 28 * u, qy + 78 * u + i * 68 * u));
+  ctx.restore();
+  if (showRing) {
+    const cx = wide ? W - 70 * u - R : W - 70 * u - R, cy = qy + qh / 2;
+    if (sosVoting) ring(g, cx, cy, R, S.endsAt - now, S.endsAt - S.startedAt);
+    else {
+      const left = T.running ? T.endsAt - now : T.left;
+      const paused = !T.running && left > 0;
+      ring(g, cx, cy, R, left, T.dur, { label: left <= 0 ? 'TEMPO!' : paused ? (S && !S.mostrato ? 'SOS' : 'STOP') : null, alert: 10000 });
+      if (left <= 0) tag(g, 'TEMPO SCADUTO', cx, cy + R + 34 * u, { bg: '#ff4d5e', size: 26 });
+    }
+  }
+  // risposte 2x2: compaiono una alla volta
+  const oy = qy + qh + 44 * u;
+  const stripH = 110 * u;
+  const footer = stripH + 50 * u + 56 * u; // spazio fisso per la riga «vota ora» / «parità»: le risposte non si spostano
+  const gap = 40 * u, ow = (W - 140 * u - 30 * u) / 2;
+  const oh = Math.max(90 * u, Math.min(190 * u, (H - oy - footer - gap) / 2));
+  const counts = S?.counts, total = counts ? counts.reduce((a, b) => a + b, 0) : 0;
+  for (let i = 0; i < 4; i++) {
+    const x = 70 * u + (i % 2) * (ow + 30 * u), y = oy + Math.floor(i / 2) * (oh + gap);
+    const shown = i < z.opzioni.length;
+    if (!shown) { // segnaposto tratteggiato: si vede che arrivano altre risposte
+      ctx.setLineDash([14 * u, 12 * u]); ctx.lineWidth = 3 * u; ctx.strokeStyle = 'rgba(23,18,31,.25)'; ctx.strokeRect(x, y, ow, oh); ctx.setLineDash([]);
+      continue;
+    }
+    const k = anim(z.shownAt?.[i + 2]);
+    const isCorrect = z.corretta === i;
+    const picked = z.teamsRevealed ? z.squadre.filter((t) => t.idx === i) : [];
+    ctx.save(); ctx.globalAlpha = k;
+    const sc = 0.85 + 0.15 * k; ctx.translate(x + ow / 2, y + oh / 2); ctx.scale(sc, sc); ctx.translate(-(x + ow / 2), -(y + oh / 2));
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(x + 8 * u, y + 8 * u, ow, oh);
+    ctx.fillStyle = isCorrect ? C.turchese : '#fff'; ctx.fillRect(x, y, ow, oh);
+    if (counts && total && !isCorrect) { // voti del pubblico (dopo «Mostra i voti»)
+      const kb = anim(S.shownAt, 1600);
+      ctx.fillStyle = 'rgba(255,107,214,.45)'; ctx.fillRect(x, y, ow * (counts[i] / total) * kb, oh);
+    }
+    ctx.lineWidth = (isCorrect ? 10 : 5) * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(x, y, ow, oh);
+    const bs = Math.min(92 * u, oh - 30 * u);
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(x + 20 * u, y + oh / 2 - bs / 2, bs, bs);
+    ctx.fillStyle = '#fff'; ctx.font = `900 ${bs * 0.66}px ${F}`; ctx.textAlign = 'center';
+    ctx.fillText(L[i], x + 20 * u + bs / 2, y + oh / 2 + bs * 0.23);
+    ctx.textAlign = 'left'; ctx.fillStyle = C.inchiostro; ctx.font = `800 ${50 * u}px ${F}`;
+    const right = (counts && total ? 170 : 30) * u;
+    ctx.fillText(z.opzioni[i], x + 40 * u + bs, y + oh / 2 + 18 * u, ow - 40 * u - bs - right);
+    if (counts && total) { ctx.font = `900 ${60 * u}px ${F}`; ctx.textAlign = 'right'; ctx.fillText(`${Math.round((counts[i] / total) * 100)}%`, x + ow - 26 * u, y + oh / 2 + 22 * u); ctx.textAlign = 'left'; }
+    ctx.restore();
+    // bollini delle squadre che hanno scritto questa lettera
+    picked.forEach((t, j) => {
+      const label = t.nome.replace(/^squadra\s+/i, '').toUpperCase() + (t.esito === false ? ' ✗' : t.esito ? ' ✓' : '');
+      ctx.font = `900 ${30 * u}px ${F}`;
+      const tw = ctx.measureText(label).width + 30 * u;
+      const bx = x + ow - 16 * u - tw - j * (tw + 12 * u), by = y - 24 * u;
+      ctx.fillStyle = C.inchiostro; ctx.fillRect(bx + 5 * u, by + 5 * u, tw, 46 * u);
+      ctx.fillStyle = t.colore || C.lime; ctx.fillRect(bx, by, tw, 46 * u);
+      ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 3 * u; ctx.strokeRect(bx, by, tw, 46 * u);
+      ctx.fillStyle = C.inchiostro; ctx.fillText(label, bx + 15 * u, by + 34 * u);
+    });
+    if (isCorrect) tag(g, '✓ RISPOSTA CORRETTA', x + 20 * u, y - 26 * u, { bg: C.lime, size: 28, align: 'left' });
+  }
+  // voto in corso dal telefono
+  if (sosVoting) {
+    ctx.font = `900 ${42 * u}px ${F}`; ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
+    const pulse = 1 + Math.sin(g.t / 260) * 0.03;
+    ctx.save(); ctx.translate(W / 2, H - stripH - 56 * u); ctx.scale(pulse, pulse);
+    ctx.fillText(`VOTA ORA DAL TELEFONO · ${S.voters} VOTI`, 0, 0); ctx.restore(); ctx.textAlign = 'left';
+  } else if (S && S.closed && !S.mostrato) {
+    ctx.font = `900 ${34 * u}px ${F}`; ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
+    ctx.fillText('VOTO DEL PUBBLICO CHIUSO · I RISULTATI TRA POCO', W / 2, H - stripH - 56 * u); ctx.textAlign = 'left';
+  } else if (counts && S.tie) {
+    ctx.font = `900 ${34 * u}px ${F}`; ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
+    ctx.fillText('PARITÀ! IL PUBBLICO È DIVISO', W / 2, H - stripH - 56 * u); ctx.textAlign = 'left';
+  }
+  // lavagnette delle squadre
+  const n = z.squadre.length, sg = 24 * u, sw = (W - 140 * u - sg * (n - 1)) / n, sy = H - stripH - 26 * u;
+  z.squadre.forEach((t, i) => {
+    const x = 70 * u + i * (sw + sg);
+    const status = t.esito === true ? `✓ GIUSTA${t.punti != null ? ' · +' + t.punti : ''}` : t.esito === false ? '✗ SBAGLIATA' : t.idx != null ? `RISPOSTA ${L[t.idx]}` : t.risposto ? '✓ HA RISPOSTO' : 'PENSA…';
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(x + 7 * u, sy + 7 * u, sw, stripH);
+    ctx.fillStyle = t.risposto || t.esito != null ? t.colore || C.lime : '#fff'; ctx.fillRect(x, sy, sw, stripH);
+    ctx.lineWidth = 4 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(x, sy, sw, stripH);
+    ctx.fillStyle = C.inchiostro; ctx.font = `900 ${32 * u}px ${F}`;
+    ctx.fillText(t.nome.toUpperCase() + (t.sos ? '  🆘' : ''), x + 22 * u, sy + 42 * u, sw - 44 * u);
+    ctx.font = `900 ${38 * u}px ${F}`;
+    ctx.fillText(status, x + 22 * u, sy + 90 * u, sw - 44 * u);
+  });
+}
+
 function wrapLines(ctx, text, maxW) {
   const words = String(text).split(/\s+/); const lines = []; let line = '';
   for (const w of words) { const t = line ? `${line} ${w}` : w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
@@ -509,7 +642,7 @@ function confetti(ctx, W, H, u, t) {
   ctx.globalAlpha = 1;
 }
 
-export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale' };
+export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale' };
 
 // ---------- VOTAZIONI CHIUSE: attesa del verdetto ----------
 function chiuse(g) {

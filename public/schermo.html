@@ -58,6 +58,7 @@
       }
       scene = p;
       if (p.type === 'sos' && p.sos) watchSos(p, !primed || sosSeen.key !== key);
+      if (p.type === 'quiz' && p.quiz) watchQuiz(p, !primed || quizSeen.key !== key);
       primed = true;
     });
     socket.on('connect', () => { connected = true; help(); });
@@ -79,6 +80,7 @@
       else if (p.type === 'classifica') {
         (p.standings?.coppie || []).forEach((_, i) => sounds.play('squadra', { at: CLASSIFICA_STEPS(i) / 1000 })); // un suono per ogni squadra che entra
       }
+      else if (p.type === 'quiz') sounds.play('whoosh'); // compare la domanda
       else if (p.type === 'generazioni') {
         sounds.play('whoosh');
         const n = Object.values(p.stats?.counts || {}).filter((c) => c > 0).length; // una barra per ogni generazione presente
@@ -115,7 +117,42 @@
       }
       sosSeen = { key: sceneKey, closed, corretta: s.corretta };
     }
-    setInterval(() => { if (scene?.type === 'sos' && scene.sos) watchSos(scene, false); }, 100); // lo zero del countdown arriva prima del server
+    setInterval(() => {
+      if (scene?.type === 'sos' && scene.sos) watchSos(scene, false); // lo zero del countdown arriva prima del server
+      if (scene?.type === 'quiz' && scene.quiz) watchQuiz(scene, false);
+    }, 100);
+
+    // ---------- suoni del quiz: ogni cambiamento della domanda in corso ----------
+    let quizSeen = { key: '' };
+    function quizSnap(z) {
+      const now = env.now(), S = z.sos, T = z.timer;
+      return {
+        key: sceneKey, opz: z.opzioni.length, risposte: z.squadre.filter((t) => t.risposto).length,
+        tempo: !!T && (T.running ? T.endsAt <= now : T.left <= 0), // timer del quiz a zero
+        sos: !!S, sosChiuso: !!S && (S.closed || now >= S.endsAt), mostrato: !!S?.mostrato, lavagnette: z.teamsRevealed, giusta: z.corretta != null,
+      };
+    }
+    function watchQuiz(p, init) {
+      const z = p.quiz, n = quizSnap(z), o = quizSeen;
+      if (!init && o.key === n.key) {
+        for (let i = o.opz; i < n.opz; i++) sounds.play('pop');
+        if (n.risposte > o.risposte) sounds.play('squadra');
+        if (!o.tempo && n.tempo && !n.lavagnette) sounds.play('fine-sos');
+        if (!o.sos && n.sos) { // SOS: avvio, tic-tac fino allo zero
+          sounds.play('sos');
+          const left = (z.sos.endsAt - env.now()) / 1000;
+          if (left > 0) sounds.play('tictac', { at: Math.min(sounds.duration('sos'), left), stopAt: left, loopFrom: 0 });
+        }
+        if (o.sos && !o.sosChiuso && n.sosChiuso) { sounds.stop('tictac'); sounds.play('fine-sos'); }
+        if (!o.mostrato && n.mostrato) {
+          sounds.play('barre');
+          setTimeout(() => { if (sceneKey === n.key && scene?.quiz?.sos?.tie) sounds.play('pari'); }, 1700);
+        }
+        if (!o.lavagnette && n.lavagnette) sounds.play('colpo');
+        if (!o.giusta && n.giusta) sounds.play(z.squadre.some((t) => t.esito) ? 'risposta' : 'sbagliata');
+      }
+      quizSeen = n;
+    }
 
     let last = 0;
     function frame(now) {

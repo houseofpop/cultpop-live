@@ -78,6 +78,8 @@ const HOLD_ACTIONS = {
   finale: { ms: 1200, run: () => cmd('finale') },
   freeze: { ms: 1200, run: () => cmd('freeze', { frozen: !A.audienceFrozen }) },
   publish: { ms: () => (A?.led?.preview?.type === 'verdetto' ? 2000 : 0), run: () => cmd('ledPublish') },
+  qForceSos: { ms: 1500, run: () => cmd('quizShowSos', { force: true }) },
+  qForceTeams: { ms: 1500, run: () => cmd('quizRevealTeams', { force: true }) },
 };
 function setupHold() {
   let timer = null, btn = null, firedAt = 0;
@@ -132,16 +134,33 @@ function buildStatic() {
   };
   if (!window.__regiaDelegated) {
     window.__regiaDelegated = true;
+    // barra spaziatrice: domanda e risposte del quiz una alla volta (mai mentre si scrive in un campo)
+    document.addEventListener('keydown', (e) => {
+      if (e.code !== 'Space' || e.repeat || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
+      if (!A?.qz || A.qz.step >= 5) return;
+      e.preventDefault();
+      cmd('quizNext');
+    });
     setupHold();
     document.addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-sos],button[data-q],button[data-sf],button[data-del],button[data-act],button[data-scene]');
+      const b = e.target.closest('button[data-sos],button[data-q],button[data-sf],button[data-del],button[data-act],button[data-scene],button[data-qopen],button[data-qreset],button[data-qa],button[data-qsos]');
       if (!b || b.disabled || !A) return;
       const d = b.dataset;
       if (d.sos) {
         const used = A.sosUsed[d.team];
         const def = cfg.sos.find((s) => s.id === d.sos);
         cmd('sosStart', { sosId: d.sos, teamId: d.team, alsoLed: $('sosLed').checked }, used ? `⚠️ ${teamName(d.team)} ha GIÀ usato il suo SOS. Avviarlo comunque?` : `Avviare SOS (${def.durataSecondi}s) per ${teamName(d.team)}${$('sosLed').checked ? ' — anche sul LED' : ''}?`);
-      } else if (d.q) cmd('quiz', { teamId: d.q, idx: Number(d.i), correct: d.on !== 'true' });
+      } else if (d.qopen) {
+        const busy = A.qz && !A.qz.correctRevealed && A.qz.step > 0;
+        cmd('quizOpen', { qid: d.qopen }, busy ? 'La domanda in corso non è finita. Passare comunque a un\'altra?' : null);
+      } else if (d.qreset) cmd('quizReset', { qid: d.qreset }, 'Rigiocare questa domanda? Il risultato e i punti assegnati vengono cancellati.');
+      else if (d.qa) cmd('quizAnswer', { teamId: d.qa, idx: d.i === '' ? null : Number(d.i) });
+      else if (d.qsos) cmd('quizSos', { teamId: d.qsos }, `SOS per ${teamName(d.qsos)}? Il timer si ferma e il pubblico vota dal telefono.`);
+      else if (d.act === 'qNext') cmd('quizNext');
+      else if (d.act === 'qClose') cmd('quizClose');
+      else if (d.act === 'qShowSos') cmd('quizShowSos');
+      else if (d.act === 'qTeams') cmd('quizRevealTeams');
+      else if (d.act === 'qCorrect') cmd('quizRevealCorrect', {}, 'Rivelare la risposta giusta? I punti vengono assegnati.');
       else if (d.sf !== undefined) cmd('sugarfree', { teamId: d.sf || null });
       else if (d.del) cmd('adjDel', { id: d.del }, 'Annullare questa correzione?');
       else if (d.scene) cmd('ledPrepare', { type: d.scene });
@@ -174,12 +193,18 @@ function render() {
   $('lockBtn').className = 'tbtn ' + (A.reactionsLocked ? 'warn' : '');
   $('freezeBtn').querySelector('.hold-label').textContent = A.audienceFrozen ? '🔓 Riapri voti pubblico (tieni premuto)' : '🔒 CHIUDI VOTAZIONI (tieni premuto)';
 
-  // SOS
-  const sosRunning = A.sos && !A.sos.closed;
-  morph($('sosCues'), cfg.sos.map((s, i) => `
-    <div class="sos-cue"><p>${i + 1}. ${esc(s.domanda)}</p>
-      <div class="row">${cfg.coppie.map((t) => `<button class="team-btn ${A.sosUsed[t.id] ? 'used' : ''}" style="background:${esc(t.colore)}" data-sos="${esc(s.id)}" data-team="${esc(t.id)}" ${sosRunning ? 'disabled' : ''} title="Avvia SOS per ${esc(t.nome)}">${esc(t.nome.replace('Squadra ', ''))}</button>`).join('')}</div>
-    </div>`).join(''));
+  // domande del quiz
+  const qs = cfg.quiz?.domande || [];
+  morph($('quizList'), qs.map((q, i) => {
+    const res = A.quizResults[q.id], cur = A.qz?.qid === q.id;
+    const state = res ? `✓ giocata · ${cfg.coppie.map((t) => `${esc(t.nome.replace('Squadra ', ''))} ${res[t.id]?.punti ?? 0}`).join(' · ')}` : cur ? '▶ in corso' : 'da giocare';
+    return `<div class="quiz-item ${cur ? 'cur' : ''} ${res ? 'done' : ''}">
+      <p><b>${i + 1}.</b> ${esc(q.testo)}</p><span class="muted">${state}</span>
+      <div class="row">${res ? `<button class="tbtn small" data-qreset="${esc(q.id)}">Rigioca</button>` : cur ? '' : `<button class="tbtn small" data-qopen="${esc(q.id)}">Prepara</button>`}</div>
+    </div>`;
+  }).join('') || '<p class="muted">Nessuna domanda in config/show.json → quiz.domande.</p>');
+  const usedSos = cfg.coppie.filter((t) => A.sosUsed[t.id]).map((t) => t.nome.replace('Squadra ', ''));
+  if (usedSos.length) $('quizList').insertAdjacentHTML('beforeend', `<p class="muted">SOS già usato: ${esc(usedSos.join(', '))}</p>`);
 
   // generazioni dal vivo
   const gs = A.genStats;
@@ -195,7 +220,8 @@ let timerInt = null;
 function renderLive() {
   clearInterval(timerInt);
   const P = $('livePanel');
-  if (A.mode === 'sos' && A.sos) return renderSosPanel(P);
+  if (A.qz && A.mode !== 'finale') return renderQuizPanel(P);
+  if (A.mode === 'sos' && A.sos && !A.sos.quizQid) return renderSosPanel(P);
   $('liveTitle').textContent = A.mode === 'finale' ? 'Finale in corso' : 'Reazioni del pubblico';
   const em = cfg.reazioni.emoji;
   const rows = cfg.concorrenti.map((c) => {
@@ -222,7 +248,7 @@ function renderLive() {
 // Dopo il ritorno automatico alle reazioni, l'ultimo SOS resta gestibile: percentuali e risposta giusta sul LED quando vuoi tu.
 function sosAfterBox() {
   const s = A.sos;
-  if (!s || !s.closed || s.revealed || A.mode === 'finale') return '';
+  if (!s || !s.closed || s.revealed || s.quizQid || A.mode === 'finale') return '';
   const def = cfg.sos.find((x) => x.id === s.sosId);
   if (!def) return '';
   const onLed = A.led.program?.type === 'sos' && A.led.program.runId === s.runId;
@@ -237,6 +263,72 @@ function sosAfterBox() {
     </div>
     ${onLed ? '' : '<span class="muted">La risposta giusta compare sulla scena SOS del LED: se sul LED c\'è altro, prima prepara e pubblica le percentuali.</span>'}
   </div>`;
+}
+
+// ---------- QUIZ: un pannello con i comandi nell'ordine in cui servono ----------
+function renderQuizPanel(P) {
+  const z = A.qz;
+  const qs = cfg.quiz.domande;
+  const q = qs.find((x) => x.id === z.qid);
+  const n = qs.indexOf(q) + 1;
+  const sos = A.sos && A.sos.runId === z.sosRunId ? A.sos : null;
+  const per = A.quizPerRisposta || { per: 10, sos: 5 };
+  $('liveTitle').textContent = `Quiz · domanda ${n} di ${qs.length}`;
+  const nextLabel = z.step === 0 ? '⎵ Mostra la DOMANDA sul LED' : z.step < 5 ? `⎵ Mostra la risposta ${L[z.step - 1]}` : 'Domanda e risposte sono sul LED';
+  const missingOthers = cfg.coppie.filter((t) => t.id !== z.sosTeam && z.answers[t.id] == null);
+  const missingAll = cfg.coppie.filter((t) => z.answers[t.id] == null);
+  const timer = z.timer ? `<div class="big-timer small" id="qTimer">${qTimerText(z.timer)}</div>` : '';
+  const rows = cfg.coppie.map((t) => {
+    const a = z.answers[t.id], isSos = z.sosTeam === t.id, used = A.sosUsed[t.id];
+    const lockLetters = z.correctRevealed || z.step < 1;
+    const sosBtn = z.correctRevealed || z.teamsRevealed ? '' : isSos ? '<span class="qp-sos on">🆘 SOS</span>'
+      : `<button class="tbtn small" data-qsos="${esc(t.id)}" ${z.step < 5 || z.sosTeam || used || (A.sos && !A.sos.closed) ? 'disabled' : ''} title="${used ? 'SOS già usato' : z.sosTeam ? 'Su questa domanda c\'è già stato un SOS' : 'La squadra chiede aiuto al pubblico'}">🆘${used ? ' usato' : ''}</button>`;
+    const res = A.quizResults[z.qid]?.[t.id];
+    const state = res ? (res.corretta ? `✓ giusta +${res.punti}` : '✗ sbagliata') : a == null ? 'pensa…' : z.teamsRevealed ? `sul LED: ${L[a]}` : `✓ ${L[a]} (nascosta)`;
+    return `<tr class="${isSos ? 'sos-row' : ''}"><td><span class="sw-chip" style="background:${esc(t.colore)}"></span><b>${esc(t.nome.replace('Squadra ', ''))}</b></td>
+      <td><span class="qp-letters">${q.opzioni.map((_, i) => `<button data-qa="${esc(t.id)}" data-i="${i}" aria-pressed="${a === i}" ${lockLetters ? 'disabled' : ''}>${L[i]}</button>`).join('')}${a != null && !lockLetters ? `<button data-qa="${esc(t.id)}" data-i="" title="Togli">✕</button>` : ''}</span></td>
+      <td class="qp-state">${state}</td><td>${sosBtn}</td></tr>`;
+  }).join('');
+  let sosBox = '';
+  if (sos) {
+    const tot = sos.voters || 1, top = sos.result?.top || [];
+    sosBox = `<div class="qp-box">
+      <div class="row" style="justify-content:space-between"><b>🆘 SOS · ${esc(teamName(sos.teamId))}</b><span><b id="qSosTimer">${sos.closed ? 'voto chiuso' : Math.ceil(Math.max(0, sos.endsAt - (Date.now() + offset)) / 1000) + ' s'}</b> · ${sos.voters} voti</span></div>
+      <div class="bars">${q.opzioni.map((o, i) => `<div class="bar ${top.includes(i) ? 'top' : ''}"><i style="width:${(sos.counts[i] / tot) * 100}%"></i><span><span>${L[i]}. ${esc(o)}</span><span>${sos.counts[i]} · ${Math.round((sos.counts[i] / tot) * 100)}%</span></span></div>`).join('')}</div>
+      ${!sos.closed ? '<button class="tbtn danger" data-act="sosClose">Chiudi ora il voto</button>'
+        : z.sosShown ? '<p class="muted">Voti del pubblico sul LED. Il timer è ripartito per la squadra dell\'SOS.</p>'
+        : missingOthers.length ? `<p class="qp-warn">Prima di mostrare i voti devono rispondere: <b>${missingOthers.map((t) => esc(t.nome)).join(', ')}</b></p>
+            <button class="tbtn" disabled>Mostra i voti del pubblico</button>
+            <button class="cue hold dark-hold qp-force" data-hold="qForceSos"><span class="hold-fill"></span><span class="hold-label">Mostrali comunque (tieni premuto)</span></button>`
+        : '<button class="tbtn big warn" data-act="qShowSos">📊 Mostra i voti del pubblico sul LED</button>'}
+      ${sos.closed && A.mode === 'sos' ? '<p class="muted">I telefoni sono su «Guarda il LED»: riportali alle reazioni con il pulsante in alto quando vuoi.</p>' : ''}
+    </div>`;
+  }
+  let reveal = '';
+  if (z.step >= 5 && !z.teamsRevealed) {
+    const blocked = (z.sosTeam && !z.sosShown) ? 'Prima mostra i voti del pubblico' : missingAll.length ? `Mancano: ${missingAll.map((t) => esc(t.nome)).join(', ')}` : '';
+    reveal = blocked ? `<p class="qp-warn">${blocked}</p><button class="tbtn" disabled>🪧 Mostra le risposte delle squadre</button>${missingAll.length && !(z.sosTeam && !z.sosShown) ? '<button class="cue hold dark-hold qp-force" data-hold="qForceTeams"><span class="hold-fill"></span><span class="hold-label">Mostrale comunque, chi manca ha 0 (tieni premuto)</span></button>' : ''}`
+      : '<button class="tbtn big warn" data-act="qTeams">🪧 Mostra le risposte delle squadre sul LED</button>';
+  } else if (z.teamsRevealed && !z.correctRevealed) reveal = `<button class="tbtn big confirm" data-act="qCorrect">✅ Rivela la risposta giusta (${L[q.corretta]}) e assegna i punti</button>`;
+  else if (z.correctRevealed) reveal = `<p class="result">Fatto. Scegli la prossima domanda a sinistra, oppure prepara un'altra scena per il LED.</p><button class="tbtn" data-act="qClose">Chiudi la domanda (torna alle reazioni in regia)</button>`;
+  morph(P, `
+    <div class="quiz-panel">
+      <div class="row" style="justify-content:space-between;align-items:flex-start"><p class="q-big">${esc(q.testo)}</p>${timer}</div>
+      <div class="qp-answers">${q.opzioni.map((o, i) => `<span class="${i === q.corretta ? 'ok' : ''} ${z.step >= i + 2 ? 'on' : ''}">${L[i]}. ${esc(o)}${i === q.corretta ? ' ✅' : ''}</span>`).join('')}</div>
+      <button class="tbtn big qp-next" data-act="qNext" ${z.step >= 5 ? 'disabled' : ''}>${nextLabel}</button>
+      <table class="qp-teams"><thead><tr><th>Squadra</th><th>Lavagnetta</th><th>Stato</th><th>SOS</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="muted">Segna la lettera di ogni squadra quando girano le lavagnette: sul LED compare solo «ha risposto» finché non mostri le risposte. Giusta = ${per.per} punti, con l'SOS ${per.sos}. ✅ = risposta giusta (solo in regia).</p>
+      ${sosBox}
+      ${reveal}
+    </div>`);
+  timerInt = setInterval(() => {
+    const t = $('qTimer'); if (t && A.qz?.timer) t.textContent = qTimerText(A.qz.timer);
+    const st = $('qSosTimer'); if (st && A.sos && !A.sos.closed) st.textContent = Math.ceil(Math.max(0, A.sos.endsAt - (Date.now() + offset)) / 1000) + ' s';
+  }, 250);
+}
+function qTimerText(T) {
+  const left = T.running ? T.endsAt - (Date.now() + offset) : T.left;
+  return left <= 0 ? 'TEMPO!' : `${Math.ceil(left / 1000)} s${T.running ? '' : ' ⏸'}`;
 }
 
 function renderSosPanel(P) {
@@ -289,17 +381,17 @@ function renderScores() {
   // la parità conta solo a fine puntata: l'avviso compare dopo «Chiudi votazioni»
   const ties = (A.audienceFrozen ? A.parita || [] : []).map((p) => `<div class="tie-alert">⚠️ <b>PARITÀ</b>: ${p.squadre.map(esc).join(' e ')} a <b>${p.totale}</b> punti. Se non intervieni decide lo spareggio (prima i punti quiz, poi quelli del pubblico). Per decidere voi: <i>Correzione manuale</i>, +1 alla squadra scelta.</div>`).join('');
   morph($('tieBox'), ties);
-  morph($('scoreTable'), `<table class="score-table"><thead><tr><th>Squadra</th><th>Quiz (risposte giuste)</th><th>Reaz.</th><th>Pubbl.</th><th>SF</th><th>Corr.</th><th>Tot</th></tr></thead><tbody>
+  morph($('scoreTable'), `<table class="score-table"><thead><tr><th>Squadra</th><th>Quiz (domande)</th><th>Reaz.</th><th>Pubbl.</th><th>SF</th><th>Corr.</th><th>Tot</th></tr></thead><tbody>
     ${cfg.coppie.map((t) => {
       const s = byId[t.id];
       const ind = st.individui.filter((i) => i.coppia === t.id).map((i) => `${esc(i.nome)} ${i.punti}`).join(' · ');
-      const answers = A.quiz[t.id] || [];
+      const qres = (cfg.quiz?.domande || []).map((q, i) => { const r = A.quizResults[q.id]?.[t.id]; return r ? `<span class="qr ${r.corretta ? 'ok' : 'ko'}" title="Domanda ${i + 1}${r.sos ? ' con SOS' : ''}">${i + 1}${r.sos ? '🆘' : ''}</span>` : `<span class="qr" title="Domanda ${i + 1} da giocare">${i + 1}</span>`; }).join('');
       return `<tr><td><span class="sw-chip" style="background:${esc(t.colore)}"></span><b>${esc(t.nome)}</b><div class="indiv">${ind}</div></td>
-        <td><span class="qbtns">${answers.map((on, i) => `<button data-q="${esc(t.id)}" data-i="${i}" data-on="${on}" aria-pressed="${on}" title="Domanda ${i + 1}">D${i + 1}</button>`).join('')}</span> <b>${s.quiz}</b></td>
+        <td><span class="qbtns">${qres}</span> <b>${s.quiz}</b></td>
         <td>${s.reazioniTotali}</td><td>${s.pubblico}</td><td>${s.sugarfree || ''}</td><td>${s.correzioni || ''}</td><td class="tot">${s.totale}</td></tr>`;
     }).join('')}
     </tbody></table>
-    <p class="muted">Classifica privata in tempo reale: ${st.coppie.map((t) => `${t.posizione}°${t.exAequo ? '=' : ''} ${esc(t.nome)}`).join(' · ')}. Ogni D vale ${Q.puntiPerRisposta} punti (max ${Q.maxPerCoppia}).</p>`);
+    <p class="muted">Classifica privata in tempo reale: ${st.coppie.map((t) => `${t.posizione}°${t.exAequo ? '=' : ''} ${esc(t.nome)}`).join(' · ')}. Quiz: ${A.quizPerRisposta?.per ?? 10} punti per risposta giusta, ${A.quizPerRisposta?.sos ?? 5} con l'SOS (totale ${Q.totale ?? 30}). Errori: «Rigioca» la domanda oppure Correzione manuale.</p>`);
 
   const locked = A.sugarfreeLocked;
   morph($('sfBox'), `
@@ -313,7 +405,7 @@ function renderScores() {
 }
 
 let lastPrev = '', lastProg = '', ledTimer = null;
-function sceneSig(sc) { return sc ? JSON.stringify([sc.type, sc.t, sc.publishedAt, sc.runId, sc.sos && [sc.sos.closed, sc.sos.voters, sc.sos.corretta]]) : ''; }
+function sceneSig(sc) { return sc ? JSON.stringify([sc.type, sc.t, sc.publishedAt, sc.runId, sc.sos && [sc.sos.closed, sc.sos.voters, sc.sos.corretta], sc.quiz && { ...sc.quiz, timer: sc.quiz.timer && { ...sc.quiz.timer, left: undefined, ended: undefined } }]) : ''; }
 function renderLed() {
   const { preview, program } = A.led;
   const hasSos = !!(A.sos);
@@ -321,7 +413,6 @@ function renderLed() {
     ['promo', '📣 Promemoria QR'],
     ['classifica', '🏆 Classifica provvisoria'],
     ['generazioni', '👶 Generazioni in sala'],
-    ['sos', '🆘 Risultati SOS'],
     ['chiuse', '🔒 Votazioni chiuse'],
     ['verdetto', '👑 Verdetto finale'],
   ];
@@ -346,10 +437,10 @@ function renderLed() {
   if (sp !== lastPrev) { lastPrev = sp; if (preview) drawScene($('previewCv'), preview, envFor(), ledSize()); else clearCv($('previewCv')); }
   if (sg !== lastProg) { lastProg = sg; drawScene($('programCv'), program, envFor(), ledSize()); }
   clearInterval(ledTimer);
-  const live = [preview, program].some((sc) => sc?.type === 'sos' && sc.sos && !sc.sos.closed);
-  if (live) ledTimer = setInterval(() => {
-    if (preview?.type === 'sos') drawScene($('previewCv'), preview, envFor(), ledSize());
-    if (program?.type === 'sos') drawScene($('programCv'), program, envFor(), ledSize());
+  const isLive = (sc) => (sc?.type === 'sos' && sc.sos && !sc.sos.closed) || (sc?.type === 'quiz' && sc.quiz && (sc.quiz.timer?.running || (sc.quiz.sos && !sc.quiz.sos.closed)));
+  if ([preview, program].some(isLive)) ledTimer = setInterval(() => {
+    if (isLive(preview)) drawScene($('previewCv'), preview, envFor(), ledSize());
+    if (isLive(program)) drawScene($('programCv'), program, envFor(), ledSize());
   }, 500);
 }
 function clearCv(cv) { const c = cv.getContext('2d'); c.fillStyle = '#222'; c.fillRect(0, 0, cv.width, cv.height); }

@@ -44,7 +44,7 @@ export function validateConfig(c) {
     if (!Array.isArray(p.pubblico?.premi) || p.pubblico.premi.length !== (c.coppie || []).length)
       err('punteggi.pubblico.premi deve avere un valore per ogni coppia');
     if (!['media', 'alto'].includes(p.pubblico?.parita)) err('punteggi.pubblico.parita deve essere "media" o "alto"');
-    if (!(p.quiz?.maxPerCoppia >= 0)) err('punteggi.quiz.maxPerCoppia non valido');
+    if (!(p.quiz?.totale >= 0)) err('punteggi.quiz.totale non valido');
     if (!(p.sugarfree?.bonus >= 0)) err('punteggi.sugarfree.bonus non valido');
     for (const k of p.spareggioFinale || []) if (!['quiz', 'pubblico', 'sugarfree'].includes(k)) err(`spareggioFinale: "${k}" non valido`);
   }
@@ -68,7 +68,14 @@ export function validateConfig(c) {
   }
   if (ids(c.sos).size !== (c.sos || []).length) err('id SOS duplicati');
 
-  if (!(c.punteggi?.quiz?.domandePerCoppia >= 1)) err('punteggi.quiz.domandePerCoppia non valido');
+  const qd = c.quiz?.domande || [];
+  for (const q of qd) {
+    if (!q.id || !q.testo) err(`quiz: domanda senza id o testo`);
+    if (!Array.isArray(q.opzioni) || q.opzioni.length !== 4 || q.opzioni.some((o) => !String(o || '').trim())) err(`quiz ${q.id}: servono 4 risposte`);
+    if (!(Number.isInteger(q.corretta) && q.corretta >= 0 && q.corretta < 4)) err(`quiz ${q.id}: "corretta" deve essere 0, 1, 2 o 3 (A, B, C, D)`);
+  }
+  if (ids(qd).size !== qd.length) err('id domande del quiz duplicati');
+  if (c.quiz && !(c.quiz.timerSecondi > 0)) err('quiz.timerSecondi non valido');
   const gens = c.generazioni || [];
   if (!gens.length) err('servono le generazioni');
   for (const g of gens) {

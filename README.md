@@ -59,3 +59,9 @@ Simulatore nel browser: `python3 demo/build.py` crea `demo/dist/simulatore.html`
 
 Sorgente **Browser** con il link LED (show `live` la sera, `prova` per le prove), larghezza 1920 e altezza 960.
 Spuntare **Controlla l'audio tramite OBS** (i suoni del LED entrano nel mixer di OBS); lasciare **spente** «Spegni la sorgente quando non è visibile» e «Aggiorna il browser quando la scena diventa attiva» (la pagina deve restare sempre accesa). In OBS l'audio parte senza clic. Per vedere lo stato (connessione, audio): tasto destro sulla sorgente → Interagisci → tasto H.
+
+## Quiz (in diretta)
+
+Tutte le squadre rispondono alle stesse domande (`config/show.json → quiz.domande`: testo, 4 risposte, `corretta` = 0-3 per A-D; `quiz.timerSecondi`).
+In regia: «Prepara» la domanda, poi barra spaziatrice (domanda, poi A, B, C, D; con la D parte il timer). Si segnano le lettere delle lavagnette (sul LED solo «ha risposto»), poi «Mostra le risposte delle squadre» e «Rivela la risposta giusta» (punti automatici: `punteggi.quiz.totale` diviso per il numero di domande, metà con l'SOS).
+SOS: un pulsante per squadra sulla domanda in corso (uno per domanda, uno per squadra nello show). Il timer si ferma, i telefoni votano la stessa domanda; i voti si mostrano sul LED solo dopo che le altre squadre hanno risposto; l'SOS non rivela la risposta giusta.

@@ -13,6 +13,8 @@ import { randomUUID } from 'node:crypto';
 
 export const MODES = ['attesa', 'reazioni', 'sos', 'finale'];
 export const LED_SCENES = ['promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'verdetto'];
+/** Passi di una domanda del quiz: 0 preparata, 1 domanda sul LED, 2..5 risposte A..D visibili (con la D parte il timer). */
+export const QUIZ_LAST_STEP = 5;
 const SOS_GRACE_MS = 600; // tolleranza di rete per i voti arrivati a ridosso dello scadere
 const MAX_TAPS_PER_ITEM = 40;
 const LOG_MAX = 200;
@@ -27,6 +29,8 @@ export class ShowEngine {
     this.teamById = Object.fromEntries(config.coppie.map((t) => [t.id, t]));
     this.abById = Object.fromEntries((config.domandeAB || []).map((q) => [q.id, q]));
     this.sosById = Object.fromEntries((config.sos || []).map((s) => [s.id, s]));
+    this.quizList = config.quiz?.domande || [];
+    this.quizById = Object.fromEntries(this.quizList.map((q) => [q.id, q]));
     this.teamIds = config.coppie.map((t) => t.id);
     this.s = this.freshState();
     this.version = 0; // cambia quando cambia ciò che vedono telefoni o LED
@@ -38,7 +42,6 @@ export class ShowEngine {
   freshState() {
     const reactions = {};
     for (const c of this.config.concorrenti) reactions[c.id] = blankReaction(this.config);
-    const nq = this.config.punteggi.quiz.domandePerCoppia || 3;
     return {
       open: false,
       mode: 'attesa',
@@ -49,7 +52,9 @@ export class ShowEngine {
       sosUsed: {},
       reactions,
       sessions: {},
-      quiz: Object.fromEntries(this.teamIds.map((t) => [t, new Array(nq).fill(false)])),
+      qz: null, // domanda del quiz in corso (vedi quizOpen)
+      quizResults: {}, // per domanda: { [squadra]: { idx, corretta, sos } } dopo «Rivela la risposta giusta»
+      quizHistory: {}, // stato finale di ogni domanda, per ridisegnarla sul LED
       sugarfree: null,
       sugarfreeLocked: false,
       adjustments: [],
@@ -68,7 +73,7 @@ export class ShowEngine {
     const fresh = this.freshState();
     this.s = { ...fresh, ...data.s };
     for (const c of this.config.concorrenti) if (!this.s.reactions[c.id]) this.s.reactions[c.id] = blankReaction(this.config);
-    for (const t of this.teamIds) if (!Array.isArray(this.s.quiz[t])) this.s.quiz[t] = fresh.quiz[t];
+    for (const k of ['quizResults', 'quizHistory']) if (!this.s[k] || typeof this.s[k] !== 'object') this.s[k] = {};
     if (!this.s.led?.program) this.s.led = fresh.led;
     this.version = (data.version || 0) + 1;
     this.touch();
@@ -152,21 +157,22 @@ export class ShowEngine {
     this.touch();
   }
 
-  startSos(sosId, teamId, { alsoLed = true } = {}) {
-    const def = this.sosById[sosId];
+  startSos(sosId, teamId, { alsoLed = true, def: given = null, quizQid = null } = {}) {
+    const def = given || this.sosById[sosId];
     if (!def) throw new Error('SOS inesistente');
     if (!this.teamIds.includes(teamId)) throw new Error('Squadra inesistente');
     if (this.s.sos && !this.s.sos.closed) throw new Error('C\'è già un SOS in corso');
     const t = this.now();
     this.s.sos = {
-      runId: randomUUID().slice(0, 8), sosId, teamId,
+      runId: randomUUID().slice(0, 8), sosId, teamId, quizQid,
+      def: given ? { domanda: def.domanda, opzioni: def.opzioni, corretta: def.corretta } : undefined,
       startedAt: t, endsAt: t + def.durataSecondi * 1000,
       closed: false, revealed: false,
       counts: def.opzioni.map(() => 0), voters: 0, result: null,
     };
     this.s.sosUsed[teamId] = sosId;
     this.s.mode = 'sos';
-    this.log(`SOS avviato: ${sosId} per ${this.teamById[teamId].nome}`);
+    this.log(`SOS avviato${quizQid ? ' sulla domanda del quiz' : ': ' + sosId} per ${this.teamById[teamId].nome}`);
     if (alsoLed) {
       this.s.led.preview = { type: 'sos', runId: this.s.sos.runId, t };
       this.s.led.program = { ...this.s.led.preview };
@@ -177,6 +183,8 @@ export class ShowEngine {
   }
 
   tick() {
+    const z = this.s.qz;
+    if (z?.timer && !z.timer.endedLogged && this.quizTimer(z).ended) { z.timer.endedLogged = true; this.log('Quiz: TEMPO scaduto'); this.touch(false); }
     const r = this.s.sos;
     if (r && !r.closed && this.now() >= r.endsAt + SOS_GRACE_MS) this.closeSos('tempo scaduto');
     // dopo «Guarda il LED» i telefoni tornano da soli alle reazioni (la regia può farlo prima)
@@ -236,23 +244,176 @@ export class ShowEngine {
     this.touch();
   }
 
-  // ---------- comandi regia: PUNTI ----------
-  /** Punti quiz per domanda: ogni casella è una risposta corretta (niente doppi clic che sommano due volte). */
-  setQuizAnswer(teamId, idx, correct) {
-    const arr = this.s.quiz[teamId];
-    if (!arr) throw new Error('Squadra inesistente');
-    const i = Math.floor(Number(idx));
-    if (!(i >= 0 && i < arr.length)) throw new Error('Domanda inesistente');
-    arr[i] = !!correct;
-    this.log(`Quiz ${this.teamById[teamId].nome}: domanda ${i + 1} ${correct ? 'CORRETTA' : 'annullata'}`);
+  // ---------- comandi regia: QUIZ ----------
+  // Tutte le squadre rispondono alla stessa domanda. Sul LED: domanda, poi A-B-C-D una alla volta (barra spaziatrice),
+  // con la D parte il timer; le lettere delle squadre restano nascoste («ha risposto») finché la regia non le mostra tutte insieme.
+  quizDef(qid) { const q = this.quizById[qid]; if (!q) throw new Error('Domanda del quiz inesistente'); return q; }
+  quizPointsPer() {
+    const P = this.config.punteggi.quiz || {};
+    const per = Math.round((P.totale ?? 30) / Math.max(1, this.quizList.length));
+    return { per, sos: P.sosMeta === false ? per : Math.round(per / 2) };
+  }
+
+  /** Stato del timer: durata, fine (se corre), rimanente (se fermo), scaduto. */
+  quizTimer(z = this.s.qz) {
+    const T = z?.timer;
+    if (!T) return null;
+    const left = T.runStart != null ? T.dur - T.used - (this.now() - T.runStart) : T.dur - T.used;
+    return { dur: T.dur, running: T.runStart != null && left > 0, endsAt: T.runStart != null ? T.runStart + T.dur - T.used : null, left: Math.max(0, left), ended: left <= 0 };
+  }
+  quizTimerPause(z) { const T = z.timer; if (T && T.runStart != null) { T.used = Math.min(T.dur, T.used + this.now() - T.runStart); T.runStart = null; } }
+  quizTimerResume(z) { const T = z.timer; if (T && T.runStart == null && T.used < T.dur && !z.teamsRevealed) T.runStart = this.now(); }
+
+  /** Prepara una domanda (il LED non cambia finché non premi «Mostra domanda»). */
+  quizOpen(qid) {
+    const q = this.quizDef(qid);
+    if (this.s.sos && !this.s.sos.closed) throw new Error('C\'è un SOS in corso: chiudilo prima');
+    if (this.s.qz && this.s.qz.qid !== qid) this.quizArchive();
+    if (this.s.quizResults[qid]) throw new Error('Domanda già giocata: per rifarla usa «Rigioca»');
+    this.s.qz = {
+      qid, step: 0, shownAt: [], answers: Object.fromEntries(this.teamIds.map((t) => [t, null])),
+      timer: null, teamsRevealed: false, correctRevealed: false, sosTeam: null, sosRunId: null, sosShown: false,
+    };
+    this.log(`Quiz: domanda ${this.quizList.indexOf(q) + 1} preparata`);
     this.touch(false);
   }
 
-  quizPoints(teamId) {
-    const q = this.config.punteggi.quiz;
-    return Math.min(q.maxPerCoppia, (this.s.quiz[teamId] || []).filter(Boolean).length * q.puntiPerRisposta);
+  /** Barra spaziatrice: mostra la domanda, poi una risposta alla volta. Con l'ultima parte il timer. */
+  quizNext() {
+    const z = this.s.qz;
+    if (!z) throw new Error('Scegli prima una domanda');
+    if (z.step >= QUIZ_LAST_STEP) throw new Error('Domanda e risposte sono già tutte sul LED');
+    z.step++;
+    z.shownAt[z.step] = this.now();
+    if (z.step === 1) {
+      const t = this.now();
+      this.s.led.preview = { type: 'quiz', qid: z.qid, t };
+      this.s.led.program = { type: 'quiz', qid: z.qid, t, publishedAt: t };
+      this.log('LED → Quiz: domanda');
+    } else this.log(`LED → Quiz: risposta ${letter(z.step - 2)}`);
+    if (z.step === QUIZ_LAST_STEP) {
+      const dur = Math.max(1, Number(this.config.quiz?.timerSecondi) || 60) * 1000;
+      z.timer = { dur, used: 0, runStart: this.now() };
+      this.log(`Quiz: timer avviato (${dur / 1000} s)`);
+    }
+    this.touch();
   }
 
+  /** La lettera scritta sulla lavagnetta di una squadra (null = toglie). Si può correggere fino alla risposta giusta. */
+  quizAnswer(teamId, idx) {
+    const z = this.s.qz;
+    if (!z) throw new Error('Nessuna domanda in corso');
+    if (!this.teamIds.includes(teamId)) throw new Error('Squadra inesistente');
+    if (z.correctRevealed) throw new Error('Risposta giusta già rivelata');
+    if (z.step < 1) throw new Error('Mostra prima la domanda');
+    const q = this.quizDef(z.qid);
+    const i = idx == null ? null : Math.floor(Number(idx));
+    if (i != null && !(i >= 0 && i < q.opzioni.length)) throw new Error('Risposta inesistente');
+    z.answers[teamId] = i;
+    this.log(`Quiz: ${this.teamById[teamId].nome} → ${i == null ? 'tolta' : letter(i)}`);
+    this.touch();
+  }
+
+  /** SOS sulla domanda in corso: il timer si ferma, il pubblico vota la stessa domanda dal telefono. */
+  quizSos(teamId) {
+    const z = this.s.qz;
+    if (!z) throw new Error('Nessuna domanda in corso');
+    if (!this.teamIds.includes(teamId)) throw new Error('Squadra inesistente');
+    if (z.step < QUIZ_LAST_STEP) throw new Error('Mostra prima tutte le risposte');
+    if (z.sosTeam) throw new Error('Su questa domanda c\'è già stato un SOS');
+    if (this.s.sosUsed[teamId]) throw new Error(`${this.teamById[teamId].nome} ha già usato il suo SOS`);
+    if (z.teamsRevealed) throw new Error('Risposte delle squadre già mostrate');
+    const q = this.quizDef(z.qid);
+    const run = this.startSos(`quiz:${z.qid}`, teamId, {
+      alsoLed: false, quizQid: z.qid,
+      def: { domanda: q.testo, opzioni: q.opzioni, corretta: q.corretta, durataSecondi: Number(this.config.quiz?.sosDurataSecondi) || 30 },
+    });
+    z.sosTeam = teamId; z.sosRunId = run.runId; z.sosShown = false;
+    this.quizTimerPause(z);
+    this.touch();
+  }
+
+  /** Mostra sul LED i voti del pubblico. Solo a voto chiuso e dopo che le ALTRE squadre hanno risposto (force = sblocco d'emergenza). */
+  quizShowSos({ force = false } = {}) {
+    const z = this.s.qz;
+    if (!z?.sosTeam) throw new Error('Nessun SOS su questa domanda');
+    const r = this.sosRun(z);
+    if (!r?.closed) throw new Error('Il voto del pubblico non è ancora chiuso');
+    const missing = this.teamIds.filter((t) => t !== z.sosTeam && z.answers[t] == null);
+    if (missing.length && !force) throw new Error(`Prima devono rispondere: ${missing.map((t) => this.teamById[t].nome).join(', ')}`);
+    z.sosShown = true;
+    z.sosShownAt = this.now();
+    this.quizTimerResume(z);
+    this.log(`LED → Quiz: voti del pubblico${missing.length ? ' (sblocco d\'emergenza)' : ''}; timer ripartito`);
+    this.touch();
+  }
+
+  /** Le lettere di tutte le squadre insieme (le lavagnette girate). force = anche se qualcuna non ha risposto. */
+  quizRevealTeams({ force = false } = {}) {
+    const z = this.s.qz;
+    if (!z) throw new Error('Nessuna domanda in corso');
+    if (z.step < QUIZ_LAST_STEP) throw new Error('Mostra prima tutte le risposte');
+    if (z.sosTeam && !z.sosShown) throw new Error('Mostra prima i voti del pubblico');
+    const missing = this.teamIds.filter((t) => z.answers[t] == null);
+    if (missing.length && !force) throw new Error(`Mancano le risposte di: ${missing.map((t) => this.teamById[t].nome).join(', ')}`);
+    this.quizTimerPause(z);
+    z.teamsRevealed = true;
+    this.log('LED → Quiz: risposte delle squadre');
+    this.touch();
+  }
+
+  /** Risposta giusta: verde sul LED e punti assegnati. */
+  quizRevealCorrect() {
+    const z = this.s.qz;
+    if (!z?.teamsRevealed) throw new Error('Mostra prima le risposte delle squadre');
+    const q = this.quizDef(z.qid);
+    z.correctRevealed = true;
+    const { per, sos } = this.quizPointsPer();
+    const res = {};
+    for (const t of this.teamIds) {
+      const ok = z.answers[t] === q.corretta;
+      res[t] = { idx: z.answers[t], corretta: ok, sos: z.sosTeam === t, punti: ok ? (z.sosTeam === t ? sos : per) : 0 };
+    }
+    this.s.quizResults[z.qid] = res;
+    this.quizArchive(false);
+    this.log(`Quiz: risposta giusta ${letter(q.corretta)} · ${this.teamIds.map((t) => `${this.teamById[t].nome} ${res[t].punti}`).join(', ')}`);
+    this.touch();
+  }
+
+  /** Chiude la domanda in corso (la regia torna al pannello delle reazioni; il LED resta com'è). */
+  quizClose() {
+    if (!this.s.qz) return;
+    if (this.s.sos && !this.s.sos.closed && this.s.sos.runId === this.s.qz.sosRunId) throw new Error('C\'è un SOS in corso su questa domanda');
+    this.quizArchive();
+    this.log('Quiz: domanda chiusa');
+    this.touch(false);
+  }
+
+  /** Rigioca una domanda (errori in prova): cancella risultato e stato. */
+  quizReset(qid) {
+    this.quizDef(qid);
+    delete this.s.quizResults[qid];
+    delete this.s.quizHistory[qid];
+    if (this.s.qz?.qid === qid) this.s.qz = null;
+    this.log(`Quiz: domanda ${this.quizList.findIndex((q) => q.id === qid) + 1} azzerata`);
+    this.touch();
+  }
+
+  quizArchive(clear = true) {
+    const z = this.s.qz;
+    if (!z) return;
+    this.quizTimerPause(z);
+    this.s.quizHistory[z.qid] = JSON.parse(JSON.stringify(z));
+    if (clear) this.s.qz = null;
+  }
+
+  sosRun(z) { return z?.sosRunId ? (this.s.sos?.runId === z.sosRunId ? this.s.sos : this.s.sosHistory.find((h) => h.runId === z.sosRunId)) : null; }
+
+  quizPoints(teamId) {
+    return Object.values(this.s.quizResults).reduce((sum, r) => sum + (r[teamId]?.punti || 0), 0);
+  }
+
+  // ---------- comandi regia: PUNTI ----------
   setSugarfree(teamId) {
     if (this.s.sugarfreeLocked) throw new Error('Voto Sugarfree bloccato: sbloccalo per cambiarlo');
     if (teamId != null && !this.teamIds.includes(teamId)) throw new Error('Squadra inesistente');
@@ -464,7 +625,6 @@ export class ShowEngine {
         membri: membri.map((m) => m.id),
         reazioniTotali: membri.reduce((s, m) => s + m.punti, 0),
         quiz: this.quizPoints(t.id),
-        quizRisposte: [...(this.s.quiz[t.id] || [])],
         sugarfree: this.s.sugarfree === t.id ? P.sugarfree.bonus : 0,
         correzioni: adjFor(t.id),
       };
@@ -480,10 +640,11 @@ export class ShowEngine {
   /** Scena LED completa di dati: per l'SOS usa i dati in diretta (voti, chiusura, rivelazione). */
   resolveScene(scene) {
     if (!scene) return null;
+    if (scene.type === 'quiz') return this.resolveQuiz(scene);
     if (scene.type !== 'sos') return scene;
     const r = (this.s.sos?.runId === scene.runId ? this.s.sos : null) || this.s.sosHistory.find((h) => h.runId === scene.runId);
     if (!r) return { type: 'promo', t: scene.t };
-    const def = this.sosById[r.sosId];
+    const def = r.def || this.sosById[r.sosId];
     return {
       ...scene,
       sos: {
@@ -497,12 +658,41 @@ export class ShowEngine {
     };
   }
 
+  /** Scena «quiz» per il LED: solo quello che il pubblico deve vedere in questo momento. */
+  resolveQuiz(scene) {
+    const q = this.quizById[scene.qid];
+    const z = this.s.qz?.qid === scene.qid ? this.s.qz : this.s.quizHistory[scene.qid];
+    if (!q || !z) return { type: 'promo', t: scene.t };
+    const visibili = Math.max(0, Math.min(4, z.step - 1));
+    const r = this.sosRun(z);
+    const corretta = z.correctRevealed ? q.corretta : null;
+    return {
+      ...scene,
+      quiz: {
+        n: this.quizList.indexOf(q) + 1, tot: this.quizList.length,
+        testo: z.step >= 1 ? q.testo : '', opzioni: q.opzioni.slice(0, visibili), totOpzioni: q.opzioni.length,
+        shownAt: z.shownAt, timer: this.quizTimer(z), teamsRevealed: z.teamsRevealed, corretta,
+        squadre: this.teamIds.map((t) => ({
+          id: t, nome: this.teamById[t].nome, colore: this.teamById[t].colore,
+          risposto: z.answers[t] != null, idx: z.teamsRevealed ? z.answers[t] : null, sos: z.sosTeam === t,
+          esito: corretta == null ? null : z.answers[t] === corretta,
+          punti: corretta == null ? null : this.s.quizResults[scene.qid]?.[t]?.punti ?? null,
+        })),
+        sos: r ? {
+          coppia: this.teamById[r.teamId]?.nome, colore: this.teamById[r.teamId]?.colore,
+          startedAt: r.startedAt, endsAt: r.endsAt, closed: r.closed, voters: r.voters, mostrato: z.sosShown, shownAt: z.sosShownAt || null,
+          counts: z.sosShown ? r.counts : null, top: z.sosShown ? r.result?.top : null, tie: z.sosShown ? r.result?.tie : null,
+        } : null,
+      },
+    };
+  }
+
   // ---------- viste ----------
   publicState() {
     const s = this.s;
     const out = { v: this.version, open: s.open, mode: s.mode, reactionsLocked: s.reactionsLocked || s.audienceFrozen, votesClosed: s.audienceFrozen };
     if (s.mode === 'sos' && s.sos) {
-      const def = this.sosById[s.sos.sosId];
+      const def = s.sos.def || this.sosById[s.sos.sosId];
       out.sos = { runId: s.sos.runId, domanda: def.domanda, opzioni: def.opzioni, startedAt: s.sos.startedAt, endsAt: s.sos.endsAt, closed: s.sos.closed };
     }
     // la classifica arriva sui telefoni SOLO dopo la pubblicazione del verdetto
@@ -528,7 +718,9 @@ export class ShowEngine {
       sos: s.sos,
       sosUsed: s.sosUsed,
       reactions: s.reactions,
-      quiz: s.quiz,
+      qz: s.qz ? { ...s.qz, timer: this.quizTimer(s.qz) } : null,
+      quizResults: s.quizResults,
+      quizPerRisposta: this.quizPointsPer(),
       sugarfree: s.sugarfree,
       sugarfreeLocked: s.sugarfreeLocked,
       adjustments: s.adjustments,

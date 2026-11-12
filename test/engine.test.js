@@ -14,6 +14,23 @@ function make() {
   return { e, clock };
 }
 
+/** Gioca una domanda del quiz: risposte per squadra (indici), eventuale SOS. */
+function play(e, qid, answers, { sos = null } = {}) {
+  e.quizOpen(qid);
+  for (let i = 0; i < 5; i++) e.quizNext();
+  if (sos) {
+    e.quizSos(sos);
+    e.closeSos('test');
+    for (const [t, i] of Object.entries(answers)) if (t !== sos) e.quizAnswer(t, i);
+    e.quizShowSos();
+    e.quizAnswer(sos, answers[sos]);
+  } else for (const [t, i] of Object.entries(answers)) e.quizAnswer(t, i);
+  e.quizRevealTeams();
+  e.quizRevealCorrect();
+}
+const C = (qid) => baseConfig.quiz.domande.find((q) => q.id === qid).corretta; // indice della risposta giusta
+const W = (qid) => (C(qid) + 1) % 4; // una risposta sbagliata
+
 test('la config fittizia è valida', () => validateConfig(baseConfig));
 
 test('config non valida: errori leggibili', () => {
@@ -79,9 +96,10 @@ test('punteggio completo: quiz per domanda, pubblico, Sugarfree, correzioni', ()
   e.react('s1', [['c1', 'ride', 3]]); // t1: +6
   e.react('s2', [['c3', 'cuore', 3]]); // t2: +3
   e.react('s3', [['c5', 'rabbia', 1]]); // t3: -2
-  e.setQuizAnswer('t1', 0, true);
-  e.setQuizAnswer('t2', 0, true); e.setQuizAnswer('t2', 1, true); e.setQuizAnswer('t2', 2, true);
-  e.setQuizAnswer('t2', 2, true); // ripetere la stessa casella non somma due volte
+  play(e, 'q1', { t1: C('q1'), t2: C('q1'), t3: W('q1') });
+  play(e, 'q2', { t1: W('q2'), t2: C('q2'), t3: W('q2') });
+  play(e, 'q3', { t1: W('q3'), t2: C('q3'), t3: W('q3') });
+  assert.throws(() => e.quizOpen('q3'), /già giocata/); // una domanda non si assegna due volte
   e.setSugarfree('t3');
   e.addAdjustment('t1', -5, 'errore di lettura');
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t]));
@@ -89,7 +107,7 @@ test('punteggio completo: quiz per domanda, pubblico, Sugarfree, correzioni', ()
   assert.equal(by.t2.totale, 30 + 20);
   assert.equal(by.t3.totale, 0 + 10 + 25);
   assert.equal(e.addAdjustment('t1', 3).delta, 3); // la motivazione è facoltativa
-  assert.throws(() => e.setQuizAnswer('t1', 5, true), /inesistente/);
+  assert.throws(() => e.quizOpen('q9'), /inesistente/);
 });
 
 test('Sugarfree: un solo bonus, bloccabile, verdetto solo con voto confermato', () => {
@@ -119,7 +137,7 @@ test('LED: anteprima e pubblicazione separate, classifica congelata', () => {
   e.ledPublish();
   const shown = e.screenState().program;
   assert.equal(shown.type, 'classifica');
-  e.setQuizAnswer('t3', 0, true); // i punti cambiano…
+  e.addAdjustment('t3', 10); // i punti cambiano…
   assert.deepEqual(e.screenState().program.standings, shown.standings); // …il LED no
   assert.throws(() => e.ledPrepare('sos'), /Nessun SOS/);
 });
@@ -234,12 +252,11 @@ test('SOS: il ritorno automatico funziona ancora se lo si riattiva da config', (
 test('parità di punteggio segnalata alla regia', () => {
   const { e } = make();
   assert.equal(e.adminState().parita.length, 1); // tutte a 20 punti all'inizio (premi pubblico divisi)
-  e.setQuizAnswer('t1', 0, true);
-  e.setQuizAnswer('t2', 0, true);
+  play(e, 'q1', { t1: C('q1'), t2: C('q1'), t3: W('q1') });
   const p = e.adminState().parita;
   assert.equal(p.length, 1);
   assert.deepEqual(p[0].squadre.sort(), ['Squadra Fucsia', 'Squadra Lime']);
-  e.setQuizAnswer('t2', 1, true);
+  play(e, 'q2', { t1: W('q2'), t2: C('q2'), t3: W('q2') });
   assert.equal(e.adminState().parita.length, 0);
 });
 
@@ -267,11 +284,103 @@ test('senza nickname e anno non si vota né si reagisce', () => {
 test('persistenza: lo stato sopravvive a un riavvio', () => {
   const { e } = make();
   e.react('s1', [['c1', 'ride', 2]]);
-  e.setQuizAnswer('t1', 1, true);
+  play(e, 'q1', { t1: C('q1'), t2: W('q1'), t3: W('q1') });
   e.setProfile('u', 'Ale', 1999);
   const copy = new ShowEngine(structuredClone(baseConfig), 'test');
   copy.load(JSON.parse(JSON.stringify(e.toJSON())));
   assert.equal(copy.s.reactions.c1.points, 4);
   assert.equal(copy.quizPoints('t1'), 10);
   assert.equal(copy.s.sessions.u.gen, 'genz');
+});
+
+test('quiz: domanda e risposte una alla volta, timer dalla D, lettere nascoste fino alla rivelazione', () => {
+  const { e, clock } = make();
+  e.quizOpen('q1');
+  assert.equal(e.screenState().program.type, 'promo'); // preparare non tocca il LED
+  e.quizNext();
+  let q = e.screenState().program.quiz;
+  assert.equal(e.screenState().program.type, 'quiz');
+  assert.ok(q.testo.length > 0);
+  assert.equal(q.opzioni.length, 0);
+  e.quizNext(); e.quizNext();
+  assert.equal(e.screenState().program.quiz.opzioni.length, 2);
+  assert.equal(e.screenState().program.quiz.timer, null);
+  e.quizNext(); e.quizNext();
+  q = e.screenState().program.quiz;
+  assert.equal(q.opzioni.length, 4);
+  assert.equal(q.timer.running, true);
+  assert.throws(() => e.quizNext(), /già tutte/);
+  e.quizAnswer('t1', 2);
+  q = e.screenState().program.quiz;
+  assert.equal(q.squadre[0].risposto, true);
+  assert.equal(q.squadre[0].idx, null); // la lettera non si vede ancora
+  assert.throws(() => e.quizRevealTeams(), /Mancano/);
+  e.quizAnswer('t2', 1); e.quizAnswer('t3', 0);
+  e.quizAnswer('t1', 1); // correzione della regia
+  clock.advance(120_000);
+  assert.equal(e.screenState().program.quiz.timer.ended, true); // allo zero domanda e risposte restano
+  assert.equal(e.screenState().program.quiz.opzioni.length, 4);
+  assert.throws(() => e.quizRevealCorrect(), /prima le risposte delle squadre/);
+  e.quizRevealTeams();
+  assert.deepEqual(e.screenState().program.quiz.squadre.map((t) => t.idx), [1, 1, 0]);
+  e.quizRevealCorrect();
+  q = e.screenState().program.quiz;
+  assert.equal(q.corretta, 1);
+  assert.deepEqual(q.squadre.map((t) => t.esito), [true, true, false]);
+  assert.throws(() => e.quizAnswer('t3', 1), /già rivelata/);
+  const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t.quiz]));
+  assert.deepEqual(by, { t1: 10, t2: 10, t3: 0 });
+});
+
+test('quiz con SOS: timer fermo, telefoni sulla stessa domanda, voti mostrati solo dopo le altre squadre, metà punti', () => {
+  const { e, clock } = make();
+  e.quizOpen('q1');
+  for (let i = 0; i < 5; i++) e.quizNext();
+  clock.advance(10_000);
+  e.quizSos('t1');
+  assert.equal(e.s.mode, 'sos');
+  assert.equal(e.publicState().sos.domanda, baseConfig.quiz.domande[0].testo); // i telefoni votano la domanda del quiz
+  const left = e.screenState().program.quiz.timer.left;
+  clock.advance(20_000);
+  assert.equal(e.screenState().program.quiz.timer.left, left); // timer fermo durante l'SOS
+  assert.equal(e.screenState().program.type, 'quiz'); // il LED resta sulla domanda
+  e.voteSos('a', e.s.sos.runId, C('q1')); e.voteSos('b', e.s.sos.runId, C('q1')); e.voteSos('c', e.s.sos.runId, 0);
+  assert.equal(e.screenState().program.quiz.sos.counts, null);
+  assert.throws(() => e.quizShowSos(), /non è ancora chiuso/);
+  clock.advance(11_000); e.tick();
+  assert.equal(e.s.sos.closed, true);
+  assert.equal(e.screenState().program.quiz.corretta, null); // l'SOS NON rivela la risposta giusta
+  e.quizAnswer('t2', C('q1'));
+  assert.throws(() => e.quizShowSos(), /Squadra Turchese/); // le altre squadre rispondono prima
+  e.quizAnswer('t3', W('q1'));
+  e.quizShowSos();
+  assert.ok(e.screenState().program.quiz.sos.counts);
+  assert.equal(e.screenState().program.quiz.timer.running, true); // il timer riparte per la squadra dell'SOS
+  assert.throws(() => e.quizSos('t2'), /già stato un SOS/);
+  e.quizAnswer('t1', C('q1'));
+  e.quizRevealTeams(); e.quizRevealCorrect();
+  const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t.quiz]));
+  assert.deepEqual(by, { t1: 5, t2: 10, t3: 0 });
+  e.quizOpen('q2');
+  for (let i = 0; i < 5; i++) e.quizNext();
+  assert.throws(() => e.quizSos('t1'), /già usato/); // un SOS per squadra in tutto lo show
+});
+
+test('quiz: punti divisi per il numero di domande, sblocco d\'emergenza, rigioca', () => {
+  const { e } = make();
+  assert.deepEqual(e.quizPointsPer(), { per: 10, sos: 5 });
+  e.quizList = [...e.quizList, { id: 'x', testo: 'x', opzioni: ['a', 'b', 'c', 'd'], corretta: 0 }, { id: 'y', testo: 'y', opzioni: ['a', 'b', 'c', 'd'], corretta: 0 }, { id: 'z', testo: 'z', opzioni: ['a', 'b', 'c', 'd'], corretta: 0 }];
+  assert.deepEqual(e.quizPointsPer(), { per: 5, sos: 3 }); // 6 domande: 30 / 6
+  e.quizList = e.quizList.slice(0, 3);
+  e.quizOpen('q1');
+  for (let i = 0; i < 5; i++) e.quizNext();
+  e.quizSos('t3'); e.closeSos('test');
+  assert.throws(() => e.quizShowSos(), /Prima devono rispondere/);
+  e.quizShowSos({ force: true });
+  e.quizAnswer('t1', 0);
+  e.quizRevealTeams({ force: true }); // chi non ha risposto prende 0
+  e.quizRevealCorrect();
+  e.quizReset('q1');
+  assert.equal(e.quizPoints('t1'), 0);
+  e.quizOpen('q1'); // si può rigiocare
 });

@@ -143,9 +143,9 @@
   },
   "punteggi": {
     "quiz": {
-      "domandePerCoppia": 3,
-      "puntiPerRisposta": 10,
-      "maxPerCoppia": 30
+      "totale": 30,
+      "sosMeta": true,
+      "_nota": "Il quiz vale «totale» punti divisi per il numero di domande (3 domande = 10 punti l'una). Con l'SOS la risposta giusta vale la metà."
     },
     "pubblico": {
       "premi": [
@@ -253,6 +253,16 @@
       "timbro": "ETERNO BAMBINO"
     }
   ],
+  "quiz": {
+    "timerSecondi": 60,
+    "sosDurataSecondi": 30,
+    "_nota": "Tutte le squadre rispondono alle stesse domande. timerSecondi parte quando compare l'ultima risposta. Un solo SOS per domanda, un SOS per squadra in tutto lo show.",
+    "domande": [
+      { "id": "q1", "testo": "[DEMO] In che anno è uscito «Il diario di Bridget Jones»?", "opzioni": ["1999", "2001", "2003", "2005"], "corretta": 1 },
+      { "id": "q2", "testo": "[DEMO] Chi canta «Your Song» in «Moulin Rouge!»?", "opzioni": ["Hugh Grant", "Ewan McGregor", "Colin Firth", "Jude Law"], "corretta": 1 },
+      { "id": "q3", "testo": "[DEMO] In «Notting Hill» che negozio ha William?", "opzioni": ["Un bar", "Una libreria di viaggi", "Un fioraio", "Un negozio di dischi"], "corretta": 1 }
+    ]
+  },
   "sos": [
     {
       "id": "sos1",

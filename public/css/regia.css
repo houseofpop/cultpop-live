@@ -169,3 +169,35 @@ h2.mt { margin-top: 24px; }
 .scene-legend .lg::before { background: var(--fucsia); }
 .tie-alert { background: #fff3c4; border: 3px solid var(--inchiostro); border-left: 10px solid #e0a100; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-weight: 600; color: var(--inchiostro); }
 .tie-alert b { font-weight: 900; }
+
+/* ---- quiz ---- */
+.quiz-list { display: grid; gap: 8px; }
+.quiz-item { border: 2px solid var(--inchiostro); border-radius: 10px; padding: 8px 10px; background: #fff; display: grid; gap: 4px; }
+.quiz-item p { margin: 0; font-weight: 800; font-size: .88rem; }
+.quiz-item.cur { background: var(--lime); }
+.quiz-item.done { opacity: .75; }
+.tbtn.small { padding: 5px 10px; font-size: .8rem; }
+.quiz-panel { display: grid; gap: 12px; }
+.quiz-panel .q-big { margin: 0; flex: 1; }
+.big-timer.small { font-size: 2.4rem; white-space: nowrap; }
+.qp-answers { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.qp-answers span { border: 2px dashed #bbb; border-radius: 8px; padding: 6px 10px; font-weight: 700; opacity: .55; }
+.qp-answers span.on { border: 2px solid var(--inchiostro); opacity: 1; background: #fff; }
+.qp-answers span.ok { font-weight: 900; }
+.qp-next { width: 100%; }
+.qp-teams { width: 100%; border-collapse: collapse; }
+.qp-teams th { text-align: left; font-size: .75rem; text-transform: uppercase; color: #666; padding: 4px 6px; }
+.qp-teams td { padding: 6px; border-top: 1px solid #ddd; vertical-align: middle; }
+.qp-teams tr.sos-row td { background: #fff7d6; }
+.qp-letters { display: inline-flex; gap: 5px; }
+.qp-letters button { width: 42px; height: 38px; border: 2px solid var(--inchiostro); border-radius: 8px; background: #fff; font: 900 1rem var(--font); cursor: pointer; }
+.qp-letters button[aria-pressed="true"] { background: var(--viola); color: #fff; }
+.qp-letters button:disabled { opacity: .45; cursor: default; }
+.qp-state { font-weight: 800; font-size: .9rem; }
+.qp-sos.on { font-weight: 900; background: var(--giallo); border: 2px solid var(--inchiostro); border-radius: 8px; padding: 4px 8px; }
+.qp-box { border: 3px solid var(--inchiostro); border-radius: 12px; padding: 12px; background: #fff7d6; display: grid; gap: 8px; }
+.qp-warn { margin: 0; font-weight: 800; color: #9a3b00; }
+.qp-force { width: 100%; }
+.qr { display: inline-grid; place-items: center; min-width: 28px; height: 26px; border: 2px solid var(--inchiostro); border-radius: 6px; font: 900 .75rem var(--font); background: #fff; opacity: .5; padding: 0 3px; }
+.qr.ok { background: var(--lime); opacity: 1; }
+.qr.ko { background: #ffd0d6; opacity: 1; }
