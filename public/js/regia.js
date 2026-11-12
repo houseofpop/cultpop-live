@@ -30,6 +30,7 @@ function syncChildren(a, b) {
 }
 
 let socket = null, cfg = null, pub = null, qrs = {}, A = null, screenKey = '', offset = 0;
+const ledSize = () => ({ width: cfg?.show?.led?.larghezza || 1920, height: cfg?.show?.led?.altezza || 1080 }); // stesso formato del LED wall
 let show = ss.get('cp_regia_show') || 'prova'; // per sicurezza si parte dalla PROVA
 const envFor = () => ({ config: pub, qr: qrs[A?.showId || show], now: () => Date.now() + offset });
 
@@ -342,13 +343,13 @@ function renderLed() {
   $('programInfo').textContent = program ? `${SCENE_LABEL[program.type]}${program.publishedAt ? ', pubblicata alle ' + hhmm(program.publishedAt) : ''}. Il tecnico la manda in onda quando serve.` : '';
   $('screenLink').href = `/schermo?key=${encodeURIComponent(screenKey)}&show=${A.showId}`;
   const sp = sceneSig(preview), sg = sceneSig(program);
-  if (sp !== lastPrev) { lastPrev = sp; if (preview) drawScene($('previewCv'), preview, envFor()); else clearCv($('previewCv')); }
-  if (sg !== lastProg) { lastProg = sg; drawScene($('programCv'), program, envFor()); }
+  if (sp !== lastPrev) { lastPrev = sp; if (preview) drawScene($('previewCv'), preview, envFor(), ledSize()); else clearCv($('previewCv')); }
+  if (sg !== lastProg) { lastProg = sg; drawScene($('programCv'), program, envFor(), ledSize()); }
   clearInterval(ledTimer);
   const live = [preview, program].some((sc) => sc?.type === 'sos' && sc.sos && !sc.sos.closed);
   if (live) ledTimer = setInterval(() => {
-    if (preview?.type === 'sos') drawScene($('previewCv'), preview, envFor());
-    if (program?.type === 'sos') drawScene($('programCv'), program, envFor());
+    if (preview?.type === 'sos') drawScene($('previewCv'), preview, envFor(), ledSize());
+    if (program?.type === 'sos') drawScene($('programCv'), program, envFor(), ledSize());
   }, 500);
 }
 function clearCv(cv) { const c = cv.getContext('2d'); c.fillStyle = '#222'; c.fillRect(0, 0, cv.width, cv.height); }

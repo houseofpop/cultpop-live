@@ -188,7 +188,7 @@ CP.prepareAssets(PUB, window.__QR).then(() => {
     if (now - last < (sc.type === 'verdetto' || sc.type === 'chiuse' ? 16 : 40)) return;
     last = now;
     if (document.getElementById('stage').dataset.pane !== 'led' && window.matchMedia('(max-width: 1023px)').matches) return;
-    CP.drawScene(document.getElementById('ledCanvas'), engine.screenState().program, led.env, { width: 1920, height: 1080, el: now - led.start });
+    CP.drawScene(document.getElementById('ledCanvas'), engine.screenState().program, led.env, { width: window.__SHOW_CONFIG.show.led?.larghezza || 1920, height: window.__SHOW_CONFIG.show.led?.altezza || 1080, el: now - led.start });
   };
   requestAnimationFrame(frame);
 });

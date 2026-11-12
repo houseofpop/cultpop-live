@@ -25,6 +25,7 @@
       "immagineLed": "img/chiuse-centro.webp"
     },
     "contatoreMinimo": 10,
+    "led": { "larghezza": 1920, "altezza": 960, "nota": "LED 4x2 metri (2:1). Il link LED usa queste misure se non ha w e h." },
     "suoniAttivi": { "prova": true, "live": false },
     "siglaLoopDa": 2.775,
     "suoni": {

@@ -57,7 +57,7 @@ body { background: var(--shell-paper); color: var(--shell-ink); font-family: var
 @container regia (max-width: 720px) { #regiaRoot .cols { grid-template-columns: minmax(0, 1fr); } #regiaRoot .col { border-right: 0; border-bottom: 2px solid #ddd; } #regiaRoot .kpis { grid-template-columns: 1fr 1fr; } #regiaRoot .live { overflow-x: auto; } }
 
 .led-frame { background: #000; border: 3px solid var(--shell-ink); border-radius: 14px; padding: 10px; }
-#ledCanvas { width: 100%; height: auto; display: block; aspect-ratio: 16 / 9; max-width: 100%; }
+#ledCanvas { width: 100%; height: auto; display: block; aspect-ratio: 2 / 1; max-width: 100%; }
 .pane-led .cap { text-align: left; margin-top: 10px; }
 
 .demo-foot { margin: 6px 0 0; font-size: .85rem; font-weight: 600; color: var(--shell-muted); max-width: 100ch; line-height: 1.5; }
@@ -135,7 +135,7 @@ body { background: var(--shell-paper); color: var(--shell-ink); font-family: var
     </section>
 
     <section class="pane pane-led" aria-label="LED wall">
-      <div class="led-frame"><canvas id="ledCanvas" width="1920" height="1080"></canvas></div>
+      <div class="led-frame"><canvas id="ledCanvas" width="1920" height="960"></canvas></div>
       <p class="cap" id="ledInfo">Sul LED: schermata di attesa con il marchio.</p>
     </section>
   </div>

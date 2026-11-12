@@ -16,7 +16,7 @@ npm run simulate -- --n=150 --show=prova   # 150 telefoni finti sullo show di PR
 | Pubblico (show reale) | `/` (è questo che va nel QR) |
 | Pubblico (prova) | `/?show=prova` |
 | Regia | `/regia` (password: `ADMIN_PASSWORD`) |
-| LED | `/schermo?key=SCREEN_KEY&show=live&w=1920&h=1080` (H aiuto, F schermo intero, P scarica PNG; `&trasparente=1` per lo sfondo trasparente; `&audio=0` toglie i suoni, `&volume=0.5` li abbassa) |
+| LED | `/schermo?key=SCREEN_KEY&show=live` (formato da `config/show.json → show.led`, ora 1920×960 = 2:1 per il LED 4×2 m; `&w=…&h=…` per forzarlo; H aiuto, F schermo intero, P scarica PNG; `&trasparente=1` per lo sfondo trasparente; `&audio=0` toglie i suoni, `&volume=0.5` li abbassa) |
 
 ## Variabili d'ambiente (obbligatorie online)
 | Nome | Uso |
@@ -54,3 +54,8 @@ Mettere `live.cultpop.it` (o simile) davanti con HTTPS. Il sito principale `cult
 - **Immagini delle generazioni:** `public/img/generazioni/<id>.webp`, quadrate 1080×1080 px, max 300 KB, soggetto al centro. Poi si aggiorna il campo `immagine` in `config/show.json`.
 
 Simulatore nel browser: `python3 demo/build.py` crea `demo/dist/simulatore.html`.
+
+## OBS (tecnico LED)
+
+Sorgente **Browser** con il link LED (show `live` la sera, `prova` per le prove), larghezza 1920 e altezza 960.
+Spuntare **Controlla l'audio tramite OBS** (i suoni del LED entrano nel mixer di OBS); lasciare **spente** «Spegni la sorgente quando non è visibile» e «Aggiorna il browser quando la scena diventa attiva» (la pagina deve restare sempre accesa). In OBS l'audio parte senza clic. Per vedere lo stato (connessione, audio): tasto destro sulla sorgente → Interagisci → tasto H.

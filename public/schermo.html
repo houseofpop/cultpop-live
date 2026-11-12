@@ -42,6 +42,8 @@
       if (msg.serverNow) offset = msg.serverNow - Date.now();
       if (msg.config || msg.qr) {
         env.config = msg.config || env.config;
+        const L = env.config?.show?.led;
+        if (L && !q.has('w') && !q.has('h')) { size.width = L.larghezza || size.width; size.height = L.altezza || size.height; }
         env.qr = msg.qr || env.qr;
         await prepareAssets(env.config, env.qr);
         if (audioOn()) sounds.load(env.config?.show?.suoni); // con i suoni spenti per questo show il LED resta muto

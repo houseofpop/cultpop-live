@@ -421,7 +421,7 @@ function verdetto(g, scene) {
   // podio: 2° a sinistra, 1° al centro (più alto), 3° a destra
   const order = [...teams].sort((a, b) => a.posizione - b.posizione);
   const slots = wide ? [1, 0, 2] : [0, 1, 2];
-  const top = y0 + 50 * u, bottom = H - 120 * u;
+  const top = y0 + 50 * u, bottom = H - 150 * u; // spazio per la scritta «Vince la squadra…» senza coprire le carte
   const n = order.length;
   order.forEach((tm, rank) => {
     const slot = slots[rank] ?? rank;
