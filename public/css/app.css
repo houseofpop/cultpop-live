@@ -39,9 +39,10 @@ body { -webkit-user-select: none; user-select: none; }
 .kid { position: relative; appearance: none; border: 3px solid var(--inchiostro); border-radius: 14px; padding: 0; background: #fff; overflow: hidden; cursor: pointer; aspect-ratio: 1/1; box-shadow: 3px 3px 0 var(--inchiostro); transition: transform .12s; }
 .kid img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .kid .name { position: absolute; left: 0; right: 0; bottom: 0; background: var(--inchiostro); color: #fff; font-weight: 900; font-size: .9rem; padding: 5px 4px 6px; text-transform: uppercase; letter-spacing: .02em; }
-.kid .tag { position: absolute; top: 6px; left: 6px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--inchiostro); }
+.kid .tag { position: absolute; top: 6px; left: 6px; width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--inchiostro); background: rgba(255,255,255,.85); } /* cerchio vuoto: diventa la spunta quando scegli */
+.kid.sel .tag { display: none; }
 .kid.sel { border-color: var(--viola); box-shadow: 0 0 0 3px var(--viola), 4px 6px 0 var(--inchiostro); transform: translateY(-3px); z-index: 2; }
-.kid.sel::after { content: '✓'; position: absolute; top: 4px; right: 4px; width: 34px; height: 34px; display: grid; place-items: center; background: var(--lime); border: 3px solid var(--inchiostro); border-radius: 50%; font-weight: 900; font-size: 1.1rem; }
+.kid.sel::after { content: '✓'; position: absolute; top: 2px; left: 2px; width: 34px; height: 34px; display: grid; place-items: center; background: var(--lime); border: 3px solid var(--inchiostro); border-radius: 50%; font-weight: 900; font-size: 1.1rem; }
 .kid.bump { animation: bump .25s; }
 @keyframes bump { 40% { transform: translateY(-3px) scale(1.06); } }
 
