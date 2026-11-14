@@ -76,42 +76,12 @@
     }
   ],
   "concorrenti": [
-    {
-      "id": "c1",
-      "nome": "Giulia",
-      "coppia": "t1",
-      "foto": "img/concorrenti/c1.svg"
-    },
-    {
-      "id": "c2",
-      "nome": "Matteo",
-      "coppia": "t1",
-      "foto": "img/concorrenti/c2.svg"
-    },
-    {
-      "id": "c3",
-      "nome": "Sofia",
-      "coppia": "t2",
-      "foto": "img/concorrenti/c3.svg"
-    },
-    {
-      "id": "c4",
-      "nome": "Leo",
-      "coppia": "t2",
-      "foto": "img/concorrenti/c4.svg"
-    },
-    {
-      "id": "c5",
-      "nome": "Aurora",
-      "coppia": "t3",
-      "foto": "img/concorrenti/c5.svg"
-    },
-    {
-      "id": "c6",
-      "nome": "Kevin",
-      "coppia": "t3",
-      "foto": "img/concorrenti/c6.svg"
-    }
+    { "id": "c1", "nome": "Chichi", "coppia": "t1", "foto": "img/concorrenti/chichi.webp" },
+    { "id": "c2", "nome": "Fil", "coppia": "t1", "foto": "img/concorrenti/fil.webp" },
+    { "id": "c3", "nome": "Giorgia", "coppia": "t2", "foto": "img/concorrenti/giorgia.webp" },
+    { "id": "c4", "nome": "Tommaso", "coppia": "t2", "foto": "img/concorrenti/tommaso.webp" },
+    { "id": "c5", "nome": "Greta", "coppia": "t3", "foto": "img/concorrenti/greta.webp" },
+    { "id": "c6", "nome": "Jack", "coppia": "t3", "foto": "img/concorrenti/jack.webp" }
   ],
   "reazioni": {
     "emoji": [

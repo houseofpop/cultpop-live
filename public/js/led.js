@@ -237,7 +237,7 @@ function teamCard(g, t, conts, x, y, w, h, wide, i, details) {
   for (const cid of t.membri) {
     const c = conts[cid];
     const im = c && img(c.foto);
-    ctx.fillStyle = C.carta; ctx.fillRect(px, py, ph, ph);
+    ctx.fillStyle = t.colore || C.carta; ctx.fillRect(px, py, ph, ph); // foto scontornate: dietro il colore della squadra
     if (im) ctx.drawImage(im, px, py, ph, ph);
     ctx.lineWidth = 4 * u; ctx.strokeRect(px, py, ph, ph);
     ctx.fillStyle = C.inchiostro; ctx.fillRect(px, py + ph - 38 * u, ph, 38 * u);

@@ -293,7 +293,7 @@ function updateCrowd() {
 
 function renderReactions() {
   const kids = cfg.concorrenti.map((c) => `
-    <button class="kid ${c.id === selected ? 'sel' : ''}" data-id="${esc(c.id)}" aria-pressed="${c.id === selected}">
+    <button class="kid ${c.id === selected ? 'sel' : ''}" data-id="${esc(c.id)}" aria-pressed="${c.id === selected}" style="background:${esc(c.colore || '#fff')}">
       <img src="${esc(c.foto)}" alt="" decoding="async">
       <span class="tag" style="background:${esc(c.colore)}"></span>
       <span class="name">${esc(c.nome)}</span>
