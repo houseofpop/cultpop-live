@@ -25,11 +25,18 @@
       "immagineLed": "img/chiuse-centro.webp"
     },
     "contatoreMinimo": 10,
-    "led": { "larghezza": 1920, "altezza": 960, "nota": "LED 4x2 metri (2:1). Il link LED usa queste misure se non ha w e h." },
-    "suoniAttivi": { "prova": true, "live": false },
-    "siglaLoopDa": 2.775,
+    "led": {
+      "larghezza": 1920,
+      "altezza": 960,
+      "nota": "LED 4x2 metri (2:1). Il link LED usa queste misure se non ha w e h."
+    },
+    "suoniAttivi": {
+      "prova": true,
+      "live": false
+    },
+    "siglaLoopDa": 40.65,
     "suoni": {
-      "sigla": "audio/sigla.wav",
+      "sigla": "audio/sigla.mp3",
       "squadra": "audio/squadra.mp3",
       "whoosh": "audio/whoosh.mp3",
       "pop": "audio/pop.mp3",
@@ -41,11 +48,11 @@
       "sbagliata": "audio/sbagliata.mp3",
       "pari": "audio/pari.mp3",
       "chiuse": "audio/chiuse.mp3",
-      "comica": "audio/comica.wav",
       "rullo": "audio/rullo.mp3",
       "colpo": "audio/colpo.mp3",
       "fanfara": "audio/fanfara.mp3",
-      "applauso": "audio/applauso.mp3"
+      "applauso": "audio/applauso.mp3",
+      "timerQuiz": "audio/tictac.wav"
     },
     "intro": {
       "attiva": true,
@@ -56,7 +63,8 @@
       "fotoPersona": "img/sergio.webp",
       "nomePersona": "Sergio Cerruti",
       "scritta": "GRAZIE"
-    }
+    },
+    "siglaLoopA": 140.65
   },
   "coppie": [
     {
@@ -76,12 +84,42 @@
     }
   ],
   "concorrenti": [
-    { "id": "c1", "nome": "Chichi", "coppia": "t1", "foto": "img/concorrenti/chichi.webp" },
-    { "id": "c2", "nome": "Fil", "coppia": "t1", "foto": "img/concorrenti/fil.webp" },
-    { "id": "c3", "nome": "Giorgia", "coppia": "t2", "foto": "img/concorrenti/giorgia.webp" },
-    { "id": "c4", "nome": "Tommaso", "coppia": "t2", "foto": "img/concorrenti/tommaso.webp" },
-    { "id": "c5", "nome": "Greta", "coppia": "t3", "foto": "img/concorrenti/greta.webp" },
-    { "id": "c6", "nome": "Jack", "coppia": "t3", "foto": "img/concorrenti/jack.webp" }
+    {
+      "id": "c1",
+      "nome": "Chichi",
+      "coppia": "t1",
+      "foto": "img/concorrenti/chichi.webp"
+    },
+    {
+      "id": "c2",
+      "nome": "Giorgia",
+      "coppia": "t1",
+      "foto": "img/concorrenti/giorgia.webp"
+    },
+    {
+      "id": "c3",
+      "nome": "Jack",
+      "coppia": "t2",
+      "foto": "img/concorrenti/jack.webp"
+    },
+    {
+      "id": "c4",
+      "nome": "Tommaso",
+      "coppia": "t2",
+      "foto": "img/concorrenti/tommaso.webp"
+    },
+    {
+      "id": "c5",
+      "nome": "Fil",
+      "coppia": "t3",
+      "foto": "img/concorrenti/fil.webp"
+    },
+    {
+      "id": "c6",
+      "nome": "Greta",
+      "coppia": "t3",
+      "foto": "img/concorrenti/greta.webp"
+    }
   ],
   "reazioni": {
     "emoji": [
@@ -115,7 +153,7 @@
     "quiz": {
       "totale": 30,
       "sosMeta": true,
-      "_nota": "Il quiz vale «totale» punti divisi per il numero di domande (3 domande = 10 punti l'una). Con l'SOS la risposta giusta vale la metà."
+      "_nota": "Il quiz vale «totale» punti divisi per il numero di domande (5 domande = 6 punti l'una). Con l'SOS la risposta giusta vale la metà (3)."
     },
     "pubblico": {
       "premi": [
@@ -228,9 +266,64 @@
     "sosDurataSecondi": 30,
     "_nota": "Tutte le squadre rispondono alle stesse domande. timerSecondi parte quando compare l'ultima risposta. Un solo SOS per domanda, un SOS per squadra in tutto lo show.",
     "domande": [
-      { "id": "q1", "testo": "[DEMO] In che anno è uscito «Il diario di Bridget Jones»?", "opzioni": ["1999", "2001", "2003", "2005"], "corretta": 1 },
-      { "id": "q2", "testo": "[DEMO] Chi canta «Your Song» in «Moulin Rouge!»?", "opzioni": ["Hugh Grant", "Ewan McGregor", "Colin Firth", "Jude Law"], "corretta": 1 },
-      { "id": "q3", "testo": "[DEMO] In «Notting Hill» che negozio ha William?", "opzioni": ["Un bar", "Una libreria di viaggi", "Un fioraio", "Un negozio di dischi"], "corretta": 1 }
+      {
+        "id": "q1",
+        "testo": "Qual è stato il primo singolo di Tiziano Ferro?",
+        "opzioni": [
+          "Sere nere",
+          "Xdono",
+          "Rosso relativo",
+          "Imbranato"
+        ],
+        "corretta": 1
+      },
+      {
+        "id": "q2",
+        "testo": "«Come tu mi vuoi» ha lo stesso titolo di un'opera molto più antica. Quale?",
+        "opzioni": [
+          "Un romanzo di Federico Moccia",
+          "Una canzone delle Vibrazioni",
+          "Un dramma di Luigi Pirandello",
+          "Un programma di Teo Mammucari"
+        ],
+        "corretta": 2
+      },
+      {
+        "id": "q3",
+        "testo": "Il testo di «Scusa ma ti chiamo amore» non l'ha firmato solo la band. Chi l'ha scritto insieme agli Sugarfree?",
+        "opzioni": [
+          "Federico Moccia",
+          "Raoul Bova",
+          "Tiziano Ferro",
+          "Fausto Brizzi"
+        ],
+        "corretta": 0,
+        "daVerificare": true
+      },
+      {
+        "id": "q4",
+        "testo": "Chi appare nel video di «Cleptomania» insieme ad altri volti della comicità di quegli anni?",
+        "opzioni": [
+          "Geppi Cucciari",
+          "Luciana Littizzetto",
+          "Virginia Raffaele",
+          "Paola Cortellesi"
+        ],
+        "corretta": 1,
+        "daVerificare": true
+      },
+      {
+        "id": "q5",
+        "testo": "In «Cleptomania» gli Sugarfree cantano: «Ora che non ho più via d'uscita, ora che ogni porta è stata chiusa, apri almeno ____ verso me». Che cosa?",
+        "opzioni": [
+          "le tue labbra",
+          "le tue gambe",
+          "le tue braccia",
+          "le tue porte"
+        ],
+        "corretta": 2,
+        "daVerificare": true
+      }
     ]
   },
   "sos": [

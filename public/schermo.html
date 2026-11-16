@@ -68,7 +68,7 @@
     // ---------- suoni: quando entra una scena e nei momenti chiave dell'SOS ----------
     function onSceneStart(p) {
       sounds.stopAll();
-      if (p.type === 'promo') sounds.play('sigla', { loopFrom: env.config?.show?.siglaLoopDa ?? 0 }); // la sigla gira in loop finché il QR resta sul LED
+      if (p.type === 'promo') sounds.play('sigla', { loopFrom: env.config?.show?.siglaLoopDa ?? 0, loopTo: env.config?.show?.siglaLoopA ?? null }); // la canzone gira in loop finché il QR resta sul LED
       else if (p.type === 'sos') {
         if (p.sos && sosClosed(p.sos)) sosResults(); // scena pubblicata a voto chiuso: le percentuali si riempiono da capo
         else sounds.play('sos');
@@ -86,7 +86,7 @@
         const n = Object.values(p.stats?.counts || {}).filter((c) => c > 0).length; // una barra per ogni generazione presente
         for (let i = 0; i < n; i++) sounds.play('pop', { at: GENERAZIONI_STEPS(i) / 1000 });
       }
-      else if (p.type === 'chiuse') { sounds.play('chiuse'); sounds.play('comica', { at: 2.4, loopFrom: 0 }); } // rullo e piatto, poi la musica comica in loop finché la scena resta
+      else if (p.type === 'chiuse') sounds.play('chiuse'); // solo rullo e piatto
       else if (p.type === 'verdetto') {
         // rullo fino al 1°, un colpo per ogni posizione prima, fanfara sul vincitore (stessi tempi della grafica)
         const n = new Set((p.standings?.coppie || []).map((t) => t.posizione)).size || 1;
@@ -94,8 +94,8 @@
         const lastAt = steps[steps.length - 1];
         sounds.play('rullo', { stopAt: lastAt });
         steps.slice(0, -1).forEach((s) => sounds.play('colpo', { at: s }));
-        sounds.play('fanfara', { at: lastAt });
-        sounds.play('applauso', { at: lastAt + 0.3 });
+        sounds.play('fanfara', { at: lastAt }); // tromba quando compare il 1°
+        sounds.play('applauso', { at: lastAt + 0.4 });
       }
     }
     const sosClosed = (s) => s.closed || env.now() >= s.endsAt;
@@ -129,6 +129,7 @@
       return {
         key: sceneKey, opz: z.opzioni.length, risposte: z.squadre.filter((t) => t.risposto).length,
         tempo: !!T && (T.running ? T.endsAt <= now : T.left <= 0), // timer del quiz a zero
+        corre: !!T && T.running && T.endsAt > now, // il timer sta andando (si ferma con l'SOS e con le lavagnette)
         sos: !!S, sosChiuso: !!S && (S.closed || now >= S.endsAt), mostrato: !!S?.mostrato, lavagnette: z.teamsRevealed, giusta: z.corretta != null,
       };
     }
@@ -137,6 +138,9 @@
       if (!init && o.key === n.key) {
         for (let i = o.opz; i < n.opz; i++) sounds.play('pop');
         if (n.risposte > o.risposte) sounds.play('squadra');
+        // suono del timer: dura quanto il timer; si ferma con l'SOS o le lavagnette e riprende dal punto giusto
+        if (!o.corre && n.corre) { const T = z.timer, left = (T.endsAt - env.now()) / 1000; sounds.play('timerQuiz', { offset: (T.dur / 1000) - left, stopAt: left, loopFrom: 0 }); }
+        if (o.corre && !n.corre) sounds.stop('timerQuiz');
         if (!o.tempo && n.tempo && !n.lavagnette) sounds.play('fine-sos');
         if (!o.sos && n.sos) { // SOS: avvio, tic-tac fino allo zero
           sounds.play('sos');

@@ -538,7 +538,7 @@ function wrapLines(ctx, text, maxW) {
 }
 
 // ---------- VERDETTO: rivelazione dal 3° al 1° posto ----------
-export const VERDICT_STEPS = [1500, 3800, 6500]; // ms: quando compaiono 3°, 2°, 1°
+export const VERDICT_STEPS = [3500, 8000, 13000]; // ms: quando compaiono 3°, 2°, 1° (lento: rullo lungo, tromba sul 1°)
 function verdetto(g, scene) {
   const { ctx, W, H, u, env, t } = g;
   const y0 = title(g, 'IL VERDETTO', 36 * u, { size: 90, color: C.viola });

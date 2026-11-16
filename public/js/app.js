@@ -47,6 +47,7 @@ socket.on('welcome', (w) => {
   cfg = w.config;
   me = { ...me, ...w.me };
   if (cfg.show.gifVotiChiusi) { const g = new Image(); g.src = asset(cfg.show.gifVotiChiusi); } // caricata subito, non al momento della chiusura
+  for (const c of cfg.concorrenti) { const im = new Image(); im.src = c.foto; } // foto dei Gen Z già pronte quando si aprono le reazioni
   offset = w.serverNow - Date.now();
   syncClock();
   setState(w.state, true);

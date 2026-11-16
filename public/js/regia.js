@@ -314,6 +314,7 @@ function renderQuizPanel(P) {
   morph(P, `
     <div class="quiz-panel">
       <div class="row" style="justify-content:space-between;align-items:flex-start"><p class="q-big">${esc(q.testo)}</p>${timer}</div>
+      ${q.daVerificare ? '<p class="qp-warn">⚠️ Risposta giusta ancora da confermare (config/show.json → quiz.domande, daVerificare).</p>' : ''}
       <div class="qp-answers">${q.opzioni.map((o, i) => `<span class="${i === q.corretta ? 'ok' : ''} ${z.step >= i + 2 ? 'on' : ''}">${L[i]}. ${esc(o)}${i === q.corretta ? ' ✅' : ''}</span>`).join('')}</div>
       <button class="tbtn big qp-next" data-act="qNext" ${z.step >= 5 ? 'disabled' : ''}>${nextLabel}</button>
       <table class="qp-teams"><thead><tr><th>Squadra</th><th>Lavagnetta</th><th>Stato</th><th>SOS</th></tr></thead><tbody>${rows}</tbody></table>

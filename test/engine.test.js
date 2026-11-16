@@ -103,8 +103,9 @@ test('punteggio completo: quiz per domanda, pubblico, Sugarfree, correzioni', ()
   e.setSugarfree('t3');
   e.addAdjustment('t1', -5, 'errore di lettura');
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t]));
-  assert.equal(by.t1.totale, 10 + 30 + 0 - 5);
-  assert.equal(by.t2.totale, 30 + 20);
+  // 5 domande: 30 / 5 = 6 punti per risposta giusta
+  assert.equal(by.t1.totale, 6 + 30 + 0 - 5);
+  assert.equal(by.t2.totale, 18 + 20);
   assert.equal(by.t3.totale, 0 + 10 + 25);
   assert.equal(e.addAdjustment('t1', 3).delta, 3); // la motivazione è facoltativa
   assert.throws(() => e.quizOpen('q9'), /inesistente/);
@@ -289,7 +290,7 @@ test('persistenza: lo stato sopravvive a un riavvio', () => {
   const copy = new ShowEngine(structuredClone(baseConfig), 'test');
   copy.load(JSON.parse(JSON.stringify(e.toJSON())));
   assert.equal(copy.s.reactions.c1.points, 4);
-  assert.equal(copy.quizPoints('t1'), 10);
+  assert.equal(copy.quizPoints('t1'), 6);
   assert.equal(copy.s.sessions.u.gen, 'genz');
 });
 
@@ -329,7 +330,7 @@ test('quiz: domanda e risposte una alla volta, timer dalla D, lettere nascoste f
   assert.deepEqual(q.squadre.map((t) => t.esito), [true, true, false]);
   assert.throws(() => e.quizAnswer('t3', 1), /già rivelata/);
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t.quiz]));
-  assert.deepEqual(by, { t1: 10, t2: 10, t3: 0 });
+  assert.deepEqual(by, { t1: 6, t2: 6, t3: 0 });
 });
 
 test('quiz con SOS: timer fermo, telefoni sulla stessa domanda, voti mostrati solo dopo le altre squadre, metà punti', () => {
@@ -360,7 +361,7 @@ test('quiz con SOS: timer fermo, telefoni sulla stessa domanda, voti mostrati so
   e.quizAnswer('t1', C('q1'));
   e.quizRevealTeams(); e.quizRevealCorrect();
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t.quiz]));
-  assert.deepEqual(by, { t1: 5, t2: 10, t3: 0 });
+  assert.deepEqual(by, { t1: 3, t2: 6, t3: 0 }); // con l'SOS metà punti
   e.quizOpen('q2');
   for (let i = 0; i < 5; i++) e.quizNext();
   assert.throws(() => e.quizSos('t1'), /già usato/); // un SOS per squadra in tutto lo show
@@ -368,10 +369,11 @@ test('quiz con SOS: timer fermo, telefoni sulla stessa domanda, voti mostrati so
 
 test('quiz: punti divisi per il numero di domande, sblocco d\'emergenza, rigioca', () => {
   const { e } = make();
-  assert.deepEqual(e.quizPointsPer(), { per: 10, sos: 5 });
-  e.quizList = [...e.quizList, { id: 'x', testo: 'x', opzioni: ['a', 'b', 'c', 'd'], corretta: 0 }, { id: 'y', testo: 'y', opzioni: ['a', 'b', 'c', 'd'], corretta: 0 }, { id: 'z', testo: 'z', opzioni: ['a', 'b', 'c', 'd'], corretta: 0 }];
-  assert.deepEqual(e.quizPointsPer(), { per: 5, sos: 3 }); // 6 domande: 30 / 6
-  e.quizList = e.quizList.slice(0, 3);
+  assert.deepEqual(e.quizPointsPer(), { per: 6, sos: 3 }); // 5 domande: 30 / 5
+  const five = e.quizList;
+  e.quizList = five.slice(0, 3);
+  assert.deepEqual(e.quizPointsPer(), { per: 10, sos: 5 }); // 3 domande: 30 / 3
+  e.quizList = five;
   e.quizOpen('q1');
   for (let i = 0; i < 5; i++) e.quizNext();
   e.quizSos('t3'); e.closeSos('test');
@@ -383,4 +385,21 @@ test('quiz: punti divisi per il numero di domande, sblocco d\'emergenza, rigioca
   e.quizReset('q1');
   assert.equal(e.quizPoints('t1'), 0);
   e.quizOpen('q1'); // si può rigiocare
+});
+
+test('punteggio: il massimo teorico e gli equilibri tra quiz, pubblico e Sugarfree', () => {
+  const { e } = make();
+  const { per, sos } = e.quizPointsPer();
+  assert.equal(per * baseConfig.quiz.domande.length, 30); // quiz pieno = 30
+  assert.equal(sos * 2, per);
+  // squadra perfetta senza SOS: 30 quiz + 30 pubblico + 25 Sugarfree = 85
+  for (const q of baseConfig.quiz.domande) play(e, q.id, { t1: C(q.id), t2: W(q.id), t3: W(q.id) });
+  e.react('s1', [['c1', 'ride', 3]]);
+  e.setSugarfree('t1');
+  const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t]));
+  assert.equal(by.t1.totale, 85);
+  assert.equal(by.t2.totale + by.t3.totale, 30); // premi pubblico 20 + 10 (pari: 15 + 15)
+  // pubblico in parità totale: 20 a testa (60 / 3)
+  const { e: e2 } = make();
+  assert.deepEqual(e2.computeStandings().coppie.map((t) => t.pubblico), [20, 20, 20]);
 });
