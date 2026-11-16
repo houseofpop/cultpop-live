@@ -56,6 +56,7 @@ const QR = {};
 for (const id of SHOW_IDS) {
   const url = id === 'live' ? `${PUBLIC_URL}/` : `${PUBLIC_URL}/?show=prova`;
   QR[id] = { url, dataUrl: await QRCode.toDataURL(url, { margin: 1, width: 640, errorCorrectionLevel: 'M', color: { dark: '#17121f', light: '#ffffff' } }) };
+  if (config.show.instagramUrl) QR[id].ig = await QRCode.toDataURL(config.show.instagramUrl, { margin: 1, width: 640, errorCorrectionLevel: 'M', color: { dark: '#17121f', light: '#ffffff' } }); // schermata finale del LED
 }
 const engines = {};
 for (const id of SHOW_IDS) {

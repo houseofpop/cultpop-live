@@ -394,8 +394,8 @@ test('punteggio: il massimo teorico e gli equilibri tra quiz, pubblico e Sugarfr
   assert.equal(per * baseConfig.quiz.domande.length, 30); // quiz pieno = 30
   assert.equal(sos * 2, per);
   // squadra perfetta senza SOS: 30 quiz + 30 pubblico + 25 Sugarfree = 85
+  e.react('s1', [['c1', 'ride', 3]]); // le reazioni valgono solo prima del quiz
   for (const q of baseConfig.quiz.domande) play(e, q.id, { t1: C(q.id), t2: W(q.id), t3: W(q.id) });
-  e.react('s1', [['c1', 'ride', 3]]);
   e.setSugarfree('t1');
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t]));
   assert.equal(by.t1.totale, 85);
@@ -459,4 +459,26 @@ test('quiz: niente SOS a tempo scaduto, lettere bloccate dopo i voti del pubblic
   e.quizAnswer('t1', 1); // la squadra dell'SOS sì
   const bad = structuredClone(baseConfig); bad.quiz.domande = bad.quiz.domande.slice(0, 4); // 30 / 4 = 7,5
   assert.throws(() => validateConfig(bad), /punti interi/);
+});
+
+test('dalla prima domanda del quiz le reazioni ai Gen Z sono chiuse e i telefoni guardano il LED', () => {
+  const { e } = make();
+  e.goReactions();
+  assert.equal(e.react('s1', [['c1', 'ride', 1]]).ok, true);
+  e.quizOpen('q1');
+  assert.equal(e.react('s1', [['c1', 'ride', 1]]).ok, true); // preparare la domanda non chiude ancora
+  e.quizNext();
+  assert.equal(e.publicState().quizStarted, true);
+  assert.equal(e.react('s1', [['c1', 'ride', 1]]).ok, false);
+});
+
+test('chiudere le votazioni porta i telefoni a «Votazioni chiuse» anche se erano fermi dopo un SOS', () => {
+  const { e } = make();
+  e.quizOpen('q1'); for (let i = 0; i < 5; i++) e.quizNext();
+  e.quizSos('t1'); e.closeSos('t');
+  assert.equal(e.publicState().mode, 'sos'); // «Guarda il LED»
+  e.setAudienceFrozen(true);
+  const ps = e.publicState();
+  assert.equal(ps.mode, 'reazioni');
+  assert.equal(ps.votesClosed, true);
 });

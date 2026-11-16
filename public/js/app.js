@@ -149,6 +149,7 @@ function render(force = false) {
   else if (state.mode === 'finale') v = `finale:${finalView}`;
   else if (state.votesClosed) v = 'chiuse';
   else if (!state.open) v = 'attesa';
+  else if (state.quizStarted) v = 'quiz'; // dal quiz in poi niente reazioni: si guarda il LED
   else v = 'reazioni';
 
   if (v !== view || force) {
@@ -163,6 +164,7 @@ function render(force = false) {
     else if (v === 'attesa') renderWaiting();
     else if (v === 'reazioni') renderReactions();
     else if (v === 'chiuse') renderVotesClosed();
+    else if (v === 'quiz') renderQuizWatch();
     else if (v.endsWith(':chiuso')) renderSosClosed();
     else if (v.startsWith('sos:')) { const fresh = !prev.startsWith(v); renderSos(fresh); if (fresh) alertSos(); }
     else if (v.startsWith('finale:')) renderFinal();
@@ -327,6 +329,15 @@ function updateReactionBar() {
   $app.querySelectorAll('.emo').forEach((b) => (b.disabled = locked || !c));
   const m = document.getElementById('barMsg');
   if (m) { m.textContent = msg; m.classList.toggle('hidden', !msg); }
+}
+
+function renderQuizWatch() {
+  $app.innerHTML = `${header()}
+    <section class="closed-screen">
+      <h1 class="closed-title"><span class="brush">Guarda il LED 👀</span></h1>
+      ${cfg.show.gifVotiChiusi ? `<img class="closed-gif" src="${esc(asset(cfg.show.gifVotiChiusi))}" alt="">` : ''}
+      <p class="plain">È il momento del quiz: le reazioni ai Gen Z sono chiuse. Tieni il telefono a portata di mano: se una squadra chiede aiuto, la domanda arriva qui.</p>
+    </section>`;
 }
 
 function renderVotesClosed() {

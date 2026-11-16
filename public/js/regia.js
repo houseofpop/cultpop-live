@@ -240,6 +240,7 @@ function renderLive() {
       <div class="kpi">Tap totali<b>${taps}</b></div>
     </div>
     ${sosAfterBox()}
+    ${A.quizStarted && !A.audienceFrozen ? '<p class="result tie">Reazioni ai Gen Z CHIUSE: è iniziato il quiz (i telefoni mostrano «Guarda il LED»)</p>' : ''}
     ${A.reactionsLocked ? '<p class="result tie">Reazioni BLOCCATE</p>' : ''}
     ${A.audienceFrozen ? '<p class="result tie">Voti del pubblico CHIUSI: punti congelati</p>' : ''}
     <table class="rx-table"><thead><tr><th>Gen Z</th>${em.map((e) => `<th>${e.simbolo} ${e.punti > 0 ? '+' : ''}${e.punti}</th>`).join('')}<th>Punti</th></tr></thead><tbody>${rows}</tbody></table>
@@ -418,6 +419,7 @@ function renderLed() {
     ['classifica', '🏆 Classifica provvisoria'],
     ['generazioni', '👶 Generazioni in sala'],
     ['chiuse', '🔒 Votazioni chiuse'],
+    ['fine', '🎬 Grazie e seguici'],
     ['verdetto', '👑 Verdetto finale'],
   ];
   morph($('sceneBtns'), scenes.map(([k, label]) => {

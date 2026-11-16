@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
  */
 
 export const MODES = ['attesa', 'reazioni', 'sos', 'finale'];
-export const LED_SCENES = ['promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'verdetto'];
+export const LED_SCENES = ['promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'verdetto', 'fine'];
 /** Passi di una domanda del quiz: 0 preparata, 1 domanda sul LED, 2..5 risposte A..D visibili (con la D parte il timer). */
 export const QUIZ_LAST_STEP = 5;
 const SOS_GRACE_MS = 600; // tolleranza di rete per i voti arrivati a ridosso dello scadere
@@ -47,6 +47,7 @@ export class ShowEngine {
       mode: 'attesa',
       reactionsLocked: false,
       audienceFrozen: false,
+      quizStarted: false, // dalla prima domanda del quiz le reazioni ai Gen Z sono chiuse
       sos: null,
       sosHistory: [],
       sosUsed: {},
@@ -234,6 +235,7 @@ export class ShowEngine {
   /** Chiude (o riapre) il voto del pubblico. Chiudendo, telefoni e LED mostrano «Votazioni chiuse». */
   setAudienceFrozen(frozen, { alsoLed = true } = {}) {
     this.s.audienceFrozen = !!frozen;
+    if (frozen && this.s.mode === 'sos') { if (this.s.sos && !this.s.sos.closed) this.closeSos('votazioni chiuse'); this.s.mode = 'reazioni'; }
     this.log(frozen ? 'Voti del pubblico CHIUSI (punti reazioni congelati)' : 'Voti del pubblico RIAPERTI');
     if (frozen && alsoLed) {
       const t = this.now();
@@ -294,6 +296,7 @@ export class ShowEngine {
     z.step++;
     z.shownAt[z.step] = this.now();
     if (z.step === 1) {
+      if (!this.s.quizStarted) { this.s.quizStarted = true; this.log('Reazioni ai Gen Z CHIUSE: è iniziato il quiz'); }
       const t = this.now();
       this.s.led.preview = { type: 'quiz', qid: z.qid, t };
       this.s.led.program = { type: 'quiz', qid: z.qid, t, publishedAt: t };
@@ -368,6 +371,7 @@ export class ShowEngine {
     if (missing.length && !force) throw new Error(`Mancano le risposte di: ${missing.map((t) => this.teamById[t].nome).join(', ')}`);
     this.quizTimerPause(z);
     z.teamsRevealed = true;
+    z.teamsRevealedAt = this.now();
     this.log('LED → Quiz: risposte delle squadre');
     this.touch();
   }
@@ -510,7 +514,7 @@ export class ShowEngine {
 
   // ---------- azioni del pubblico ----------
   react(sid, batch) {
-    if (!this.s.open || this.s.mode !== 'reazioni' || this.s.reactionsLocked || this.s.audienceFrozen) return { ok: false, reason: 'chiuso' };
+    if (!this.s.open || this.s.mode !== 'reazioni' || this.s.reactionsLocked || this.s.audienceFrozen || this.s.quizStarted) return { ok: false, reason: 'chiuso' };
     if (!Array.isArray(batch)) return { ok: false, reason: 'formato' };
     const ses = this.ensureSession(sid);
     if (!ses.nick) return { ok: false, reason: 'profilo' }; // prima nickname e anno, poi si vota
@@ -696,7 +700,7 @@ export class ShowEngine {
       quiz: {
         n: this.quizList.indexOf(q) + 1, tot: this.quizList.length,
         testo: z.step >= 1 ? q.testo : '', opzioni: q.opzioni.slice(0, visibili), totOpzioni: q.opzioni.length,
-        shownAt: z.shownAt, timer: this.quizTimer(z), teamsRevealed: z.teamsRevealed, corretta,
+        shownAt: z.shownAt, timer: this.quizTimer(z), teamsRevealed: z.teamsRevealed, teamsRevealedAt: z.teamsRevealedAt || null, corretta,
         squadre: this.teamIds.map((t) => ({
           id: t, nome: this.teamById[t].nome, colore: this.teamById[t].colore,
           risposto: z.answers[t] != null, idx: z.teamsRevealed ? z.answers[t] : null, sos: z.sosTeam === t,
@@ -715,7 +719,7 @@ export class ShowEngine {
   // ---------- viste ----------
   publicState() {
     const s = this.s;
-    const out = { v: this.version, open: s.open, mode: s.mode, reactionsLocked: s.reactionsLocked || s.audienceFrozen, votesClosed: s.audienceFrozen };
+    const out = { v: this.version, open: s.open, mode: s.mode, reactionsLocked: s.reactionsLocked || s.audienceFrozen || s.quizStarted, votesClosed: s.audienceFrozen, quizStarted: s.quizStarted };
     if (s.mode === 'sos' && s.sos) {
       const def = s.sos.def || this.sosById[s.sos.sosId];
       out.sos = { runId: s.sos.runId, domanda: def.domanda, opzioni: def.opzioni, startedAt: s.sos.startedAt, endsAt: s.sos.endsAt, closed: s.sos.closed };
@@ -740,6 +744,7 @@ export class ShowEngine {
       mode: s.mode,
       reactionsLocked: s.reactionsLocked,
       audienceFrozen: s.audienceFrozen,
+      quizStarted: s.quizStarted,
       sos: s.sos,
       sosUsed: s.sosUsed,
       reactions: s.reactions,

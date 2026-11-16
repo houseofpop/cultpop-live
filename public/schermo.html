@@ -21,7 +21,7 @@
   <script type="module">
     // Pagina per il LED wall: il tecnico la carica come sorgente web (o la mostra a tutto schermo da un portatile).
     // Mostra SOLO ciò che la regia ha pubblicato. Se la connessione cade, resta l'ultima immagine (nessun avviso visibile in onda).
-    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS, CLASSIFICA_STEPS, GENERAZIONI_STEPS, SOS_BARRE } from '/js/led.js';
+    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS, CLASSIFICA_STEPS, GENERAZIONI_STEPS, SOS_BARRE, QUIZ_TEAM_STEP } from '/js/led.js';
     import { createSounds } from '/js/suoni.js';
     const q = new URLSearchParams(location.search);
     const size = { width: Number(q.get('w')) || 1920, height: Number(q.get('h')) || 1080 };
@@ -68,7 +68,7 @@
     // ---------- suoni: quando entra una scena e nei momenti chiave dell'SOS ----------
     function onSceneStart(p) {
       sounds.stopAll();
-      if (p.type === 'promo') sounds.play('sigla', { loopFrom: env.config?.show?.siglaLoopDa ?? 0, loopTo: env.config?.show?.siglaLoopA ?? null }); // la canzone gira in loop finché il QR resta sul LED
+      if (p.type === 'promo' || p.type === 'fine') sounds.play('sigla', { loopFrom: env.config?.show?.siglaLoopDa ?? 0, loopTo: env.config?.show?.siglaLoopA ?? null }); // la canzone gira in loop finché il QR resta sul LED
       else if (p.type === 'sos') {
         if (p.sos && sosClosed(p.sos)) sosResults(); // scena pubblicata a voto chiuso: le percentuali si riempiono da capo
         else sounds.play('sos');
@@ -93,7 +93,7 @@
         const steps = VERDICT_STEPS.slice(Math.max(0, VERDICT_STEPS.length - n)).map((ms) => ms / 1000);
         const lastAt = steps[steps.length - 1];
         sounds.play('rullo', { stopAt: lastAt });
-        steps.slice(0, -1).forEach((s) => sounds.play('colpo', { at: s }));
+        steps.slice(0, -1).forEach((s) => sounds.play('colpo', { at: s, gain: 1.6 })); // 3° e 2°: colpo ben udibile sopra il rullo
         sounds.play('fanfara', { at: lastAt }); // tromba quando compare il 1°
         sounds.play('applauso', { at: lastAt + 0.4 });
       }
@@ -157,7 +157,7 @@
           sounds.play('barre');
           setTimeout(() => { if (sceneKey === n.key && scene?.quiz?.sos?.tie) sounds.play('pari'); }, 1700);
         }
-        if (!o.lavagnette && n.lavagnette) sounds.play('colpo');
+        if (!o.lavagnette && n.lavagnette) z.squadre.forEach((t, i) => { if (t.idx != null) sounds.play('squadra', { at: i * QUIZ_TEAM_STEP / 1000 }); }); // un suono per ogni squadra che compare sulla sua lettera
         if (!o.giusta && n.giusta) sounds.play(z.squadre.some((t) => t.esito) ? 'risposta' : 'sbagliata');
       }
       quizSeen = n;

@@ -50,6 +50,7 @@ export function drawScene(cv, scene, env, { width = 1920, height = 1080, el = In
   else if (type === 'generazioni') generazioni(g, scene);
   else if (type === 'sos') sos(g, scene);
   else if (type === 'quiz') quiz(g, scene);
+  else if (type === 'fine') fine(g);
   else if (type === 'verdetto') verdetto(g, scene);
   else if (type === 'chiuse') chiuse(g);
   return cv;
@@ -409,8 +410,10 @@ function ring(g, cx, cy, R, left, total, { label = null, alert = 6000 } = {}) {
   ctx.lineCap = 'butt';
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, R - 15 * u, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hot || left <= 0 ? '#ff4d5e' : C.inchiostro; ctx.textAlign = 'center';
-  ctx.font = `900 ${(label ? 46 : 88) * u}px ${F}`;
-  ctx.fillText(label || String(Math.ceil(left / 1000)), cx, cy + (label ? 16 : 32) * u);
+  let fs = (label ? 46 : 88) * u;
+  ctx.font = `900 ${fs}px ${F}`;
+  if (label) { const w = ctx.measureText(label).width, max = (R - 22 * u) * 2; if (w > max) { fs *= max / w; ctx.font = `900 ${fs}px ${F}`; } } // la scritta resta dentro il cerchio
+  ctx.fillText(label || String(Math.ceil(left / 1000)), cx, cy + (label ? fs * 0.35 : 32 * u));
   ctx.textAlign = 'left';
 }
 
@@ -451,7 +454,6 @@ function quiz(g, scene) {
       const left = T.running ? T.endsAt - now : T.left;
       const paused = !T.running && left > 0;
       ring(g, cx, cy, R, left, T.dur, { label: left <= 0 ? 'TEMPO!' : paused ? (S && !S.mostrato ? 'SOS' : 'STOP') : null, alert: 10000 });
-      if (left <= 0) tag(g, 'TEMPO SCADUTO', cx, cy + R + 34 * u, { bg: '#ff4d5e', size: 26 });
     }
   }
   // risposte 2x2: compaiono una alla volta
@@ -480,27 +482,38 @@ function quiz(g, scene) {
       ctx.fillStyle = 'rgba(255,107,214,.45)'; ctx.fillRect(x, y, ow * (counts[i] / total) * kb, oh);
     }
     ctx.lineWidth = (isCorrect ? 10 : 5) * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(x, y, ow, oh);
+    // tutto DENTRO la casella, niente che sporga: lettera (lime con ✓ se giusta), testo, bollini delle squadre sotto il testo, percentuale a destra
     const bs = Math.min(92 * u, oh - 30 * u);
-    ctx.fillStyle = C.inchiostro; ctx.fillRect(x + 20 * u, y + oh / 2 - bs / 2, bs, bs);
-    ctx.fillStyle = '#fff'; ctx.font = `900 ${bs * 0.66}px ${F}`; ctx.textAlign = 'center';
-    ctx.fillText(L[i], x + 20 * u + bs / 2, y + oh / 2 + bs * 0.23);
-    ctx.textAlign = 'left'; ctx.fillStyle = C.inchiostro; ctx.font = `800 ${50 * u}px ${F}`;
-    const right = (counts && total ? 170 : 30) * u;
-    ctx.fillText(z.opzioni[i], x + 40 * u + bs, y + oh / 2 + 18 * u, ow - 40 * u - bs - right);
+    const two = z.teamsRevealed; // con le lavagnette girate: testo in alto, bollini sotto
+    ctx.fillStyle = isCorrect ? C.lime : C.inchiostro; ctx.fillRect(x + 20 * u, y + oh / 2 - bs / 2, bs, bs);
+    if (isCorrect) { ctx.lineWidth = 4 * u; ctx.strokeRect(x + 20 * u, y + oh / 2 - bs / 2, bs, bs); }
+    ctx.fillStyle = isCorrect ? C.inchiostro : '#fff'; ctx.font = `900 ${bs * 0.66}px ${F}`; ctx.textAlign = 'center';
+    ctx.fillText(isCorrect ? '✓' : L[i], x + 20 * u + bs / 2, y + oh / 2 + bs * 0.23);
+    const tx = x + 40 * u + bs, right = (counts && total ? 170 : 30) * u, tw = ow - 40 * u - bs - right;
+    const fs = Math.min(50 * u, oh * (two ? 0.3 : 0.36));
+    ctx.textAlign = 'left'; ctx.fillStyle = C.inchiostro; ctx.font = `800 ${fs}px ${F}`;
+    ctx.fillText((isCorrect ? L[i] + '. ' : '') + z.opzioni[i], tx, two ? y + oh * 0.42 : y + oh / 2 + fs * 0.36, tw);
     if (counts && total) { ctx.font = `900 ${60 * u}px ${F}`; ctx.textAlign = 'right'; ctx.fillText(`${Math.round((counts[i] / total) * 100)}%`, x + ow - 26 * u, y + oh / 2 + 22 * u); ctx.textAlign = 'left'; }
     ctx.restore();
-    // bollini delle squadre che hanno scritto questa lettera
-    picked.forEach((t, j) => {
+    // bollini delle squadre che hanno scritto questa lettera: compaiono uno alla volta (ognuno con il suo suono)
+    let bx = tx;
+    const ch = Math.min(42 * u, oh * 0.28), cy0 = y + oh * 0.56;
+    picked.forEach((t) => {
+      const ti = z.squadre.indexOf(t);
+      const kk = anim(z.teamsRevealedAt ? z.teamsRevealedAt + ti * QUIZ_TEAM_STEP : null, 300);
+      if (kk <= 0) return;
       const label = t.nome.replace(/^squadra\s+/i, '').toUpperCase() + (t.esito === false ? ' ✗' : t.esito ? ' ✓' : '');
-      ctx.font = `900 ${30 * u}px ${F}`;
-      const tw = ctx.measureText(label).width + 30 * u;
-      const bx = x + ow - 16 * u - tw - j * (tw + 12 * u), by = y - 24 * u;
-      ctx.fillStyle = C.inchiostro; ctx.fillRect(bx + 5 * u, by + 5 * u, tw, 46 * u);
-      ctx.fillStyle = t.colore || C.lime; ctx.fillRect(bx, by, tw, 46 * u);
-      ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 3 * u; ctx.strokeRect(bx, by, tw, 46 * u);
-      ctx.fillStyle = C.inchiostro; ctx.fillText(label, bx + 15 * u, by + 34 * u);
+      ctx.font = `900 ${ch * 0.62}px ${F}`;
+      const w = ctx.measureText(label).width + 26 * u;
+      if (bx + w > x + ow - right) return; // non esce mai dalla casella
+      ctx.save(); ctx.globalAlpha = kk; ctx.translate(bx + w / 2, cy0 + ch / 2); const sc2 = 0.6 + 0.4 * kk; ctx.scale(sc2, sc2); ctx.translate(-(bx + w / 2), -(cy0 + ch / 2));
+      ctx.fillStyle = C.inchiostro; ctx.fillRect(bx + 4 * u, cy0 + 4 * u, w, ch);
+      ctx.fillStyle = t.colore || C.lime; ctx.fillRect(bx, cy0, w, ch);
+      ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 3 * u; ctx.strokeRect(bx, cy0, w, ch);
+      ctx.fillStyle = t.esito === false ? '#b3001b' : C.inchiostro; ctx.fillText(label, bx + 13 * u, cy0 + ch * 0.7);
+      ctx.restore();
+      bx += w + 10 * u;
     });
-    if (isCorrect) tag(g, '✓ RISPOSTA CORRETTA', x + 20 * u, y - 26 * u, { bg: C.lime, size: 28, align: 'left' });
   }
   // voto in corso dal telefono
   if (sosVoting) {
@@ -530,6 +543,59 @@ function quiz(g, scene) {
   });
 }
 
+// ---------- FINE: grazie e seguici (con la canzone sotto) ----------
+function fine(g) {
+  const { ctx, W, H, u, t, env } = g;
+  const wide = W / H > 1.3;
+  logo(g, 60 * u, 46 * u, 200 * u);
+  // emoji che salgono, come nel promemoria
+  const em = ['😂', '❤️', '😬', '😡', '🎬', '💔'];
+  ctx.font = `${70 * u}px ${F}`;
+  for (let i = 0; i < 9; i++) {
+    const r = rng(i + 11), sp = 8000 + r() * 5000, ph = ((t + r() * sp) % sp) / sp;
+    ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.7;
+    ctx.fillText(em[i % em.length], 80 * u + r() * (W - 220 * u), H + 60 * u - ph * H * 0.7);
+  }
+  ctx.globalAlpha = 1;
+  const qrSize = (wide ? 400 : 480) * u;
+  const qx = wide ? W - qrSize - 130 * u : W / 2 - qrSize / 2, qy = wide ? H / 2 - qrSize / 2 + 40 * u : H * 0.56;
+  const cx = wide ? (qx - 40 * u) / 2 + 20 * u : W / 2, maxW = wide ? qx - 200 * u : W * 0.86;
+  const k = (d) => (g.el === Infinity ? 1 : ease((t - d) / 600));
+  // titolo
+  ctx.save(); ctx.globalAlpha = k(0); ctx.translate(cx, H * (wide ? 0.27 : 0.2)); ctx.rotate(-0.025);
+  ctx.font = `900 ${118 * u}px ${F}`; ctx.textAlign = 'center';
+  const tt = 'È FINITA.', w1 = Math.min(ctx.measureText(tt).width, maxW);
+  brush(ctx, -w1 / 2 - 50 * u, -100 * u, w1 + 100 * u, 140 * u, C.viola, 31);
+  ctx.fillStyle = '#fff'; ctx.fillText(tt, 0, 0, maxW);
+  ctx.restore();
+  ctx.save(); ctx.globalAlpha = k(350); ctx.textAlign = 'center';
+  ctx.font = `900 ${50 * u}px ${F}`; ctx.fillStyle = C.inchiostro;
+  ctx.fillText('(PER STASERA)', cx, H * (wide ? 0.27 : 0.2) + 75 * u, maxW);
+  ctx.restore();
+  // ringraziamento ironico
+  const y2 = H * (wide ? 0.5 : 0.37);
+  ctx.save(); ctx.globalAlpha = k(800); ctx.textAlign = 'center';
+  ctx.font = `900 ${56 * u}px ${F}`; ctx.fillStyle = C.inchiostro;
+  ctx.fillText('Grazie per aver giocato con noi!', cx, y2, maxW);
+  ctx.font = `800 ${42 * u}px ${F}`;
+  ['Millennials: il mal di schiena vi aspetta a casa.', 'Gen Z: potete riaprire TikTok, lo sappiamo che non vedevate l’ora.']
+    .forEach((l, i) => ctx.fillText(l, cx, y2 + 72 * u + i * 56 * u, maxW));
+  ctx.restore();
+  // QR di Instagram
+  const qr = env.qr?.ig && img(env.qr.ig);
+  ctx.save(); ctx.globalAlpha = k(1300);
+  ctx.translate(qx + qrSize / 2, qy + qrSize / 2); ctx.rotate(0.03); ctx.translate(-(qx + qrSize / 2), -(qy + qrSize / 2));
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(qx + 14 * u, qy + 14 * u, qrSize + 30 * u, qrSize + 30 * u);
+  ctx.fillStyle = '#fff'; ctx.fillRect(qx - 15 * u, qy - 15 * u, qrSize + 30 * u, qrSize + 30 * u);
+  if (qr) ctx.drawImage(qr, qx, qy, qrSize, qrSize);
+  ctx.restore();
+  const handle = (env.config?.show?.instagramHandle || '@cultpop.it').toUpperCase();
+  ctx.save(); ctx.globalAlpha = k(1500);
+  tag(g, `SEGUICI ${handle}`, qx + qrSize / 2, qy - 80 * u, { bg: C.fucsia, size: 40 });
+  tag(g, 'NON TI LIBERERAI DI NOI COSÌ FACILMENTE', qx + qrSize / 2, qy + qrSize + 40 * u, { bg: C.lime, size: 24 });
+  ctx.restore();
+}
+
 function wrapLines(ctx, text, maxW) {
   const words = String(text).split(/\s+/); const lines = []; let line = '';
   for (const w of words) { const t = line ? `${line} ${w}` : w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
@@ -538,7 +604,9 @@ function wrapLines(ctx, text, maxW) {
 }
 
 // ---------- VERDETTO: rivelazione dal 3° al 1° posto ----------
-export const VERDICT_STEPS = [3500, 8000, 13000]; // ms: quando compaiono 3°, 2°, 1° (lento: rullo lungo, tromba sul 1°)
+/** Lavagnette girate: i bollini delle squadre compaiono uno alla volta (ms tra uno e l'altro). */
+export const QUIZ_TEAM_STEP = 450;
+export const VERDICT_STEPS = [4000, 9000, 11500]; // dal 2° al 1° poco: a quel punto il vincitore si è già capito // ms: quando compaiono 3°, 2°, 1° (lento: rullo lungo, tromba sul 1°)
 function verdetto(g, scene) {
   const { ctx, W, H, u, env, t } = g;
   const y0 = title(g, 'IL VERDETTO', 36 * u, { size: 90, color: C.viola });
@@ -642,7 +710,7 @@ function confetti(ctx, W, H, u, t) {
   ctx.globalAlpha = 1;
 }
 
-export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale' };
+export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale', fine: 'Grazie e seguici' };
 
 // ---------- VOTAZIONI CHIUSE: attesa del verdetto ----------
 function chiuse(g) {
@@ -703,7 +771,7 @@ const srcOf = (p) => (/^(data:|blob:|https?:|\/)/.test(p) ? p : '/' + p);
 export async function prepareAssets(config, qr) {
   await fontsReady();
   const vc = config?.show?.votazioniChiuse;
-  await preload(['/img/logo.webp', qr?.dataUrl, vc?.immagineLed && srcOf(vc.immagineLed), ...(config?.concorrenti || []).map((c) => c.foto)]);
+  await preload(['/img/logo.webp', qr?.dataUrl, qr?.ig, vc?.immagineLed && srcOf(vc.immagineLed), ...(config?.concorrenti || []).map((c) => c.foto)]);
 }
 
 export async function downloadPng(cv, name = 'cultpop-led.png') {
