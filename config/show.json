@@ -32,7 +32,7 @@
     },
     "suoniAttivi": {
       "prova": true,
-      "live": false
+      "live": true
     },
     "siglaLoopDa": 40.65,
     "suoni": {
@@ -297,8 +297,7 @@
           "Tiziano Ferro",
           "Fausto Brizzi"
         ],
-        "corretta": 0,
-        "daVerificare": true
+        "corretta": 0
       },
       {
         "id": "q4",
@@ -309,8 +308,7 @@
           "Virginia Raffaele",
           "Paola Cortellesi"
         ],
-        "corretta": 1,
-        "daVerificare": true
+        "corretta": 0
       },
       {
         "id": "q5",
@@ -321,8 +319,7 @@
           "le tue braccia",
           "le tue porte"
         ],
-        "corretta": 2,
-        "daVerificare": true
+        "corretta": 1
       }
     ]
   },
