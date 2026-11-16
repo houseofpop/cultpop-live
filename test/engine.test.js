@@ -103,10 +103,10 @@ test('punteggio completo: quiz per domanda, pubblico, Sugarfree, correzioni', ()
   e.setSugarfree('t3');
   e.addAdjustment('t1', -5, 'errore di lettura');
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t]));
-  // 5 domande: 30 / 5 = 6 punti per risposta giusta
-  assert.equal(by.t1.totale, 6 + 30 + 0 - 5);
-  assert.equal(by.t2.totale, 18 + 20);
-  assert.equal(by.t3.totale, 0 + 10 + 25);
+  // 5 domande: 50 / 5 = 10 punti per risposta giusta; Sugarfree 20
+  assert.equal(by.t1.totale, 10 + 30 + 0 - 5);
+  assert.equal(by.t2.totale, 30 + 20);
+  assert.equal(by.t3.totale, 0 + 10 + 20);
   assert.equal(e.addAdjustment('t1', 3).delta, 3); // la motivazione è facoltativa
   assert.throws(() => e.quizOpen('q9'), /inesistente/);
 });
@@ -117,7 +117,7 @@ test('Sugarfree: un solo bonus, bloccabile, verdetto solo con voto confermato', 
   e.setSugarfree('t1');
   e.setSugarfree('t2'); // sostituisce, non somma
   const st = e.computeStandings();
-  assert.equal(st.coppie.reduce((s, t) => s + t.sugarfree, 0), 25);
+  assert.equal(st.coppie.reduce((s, t) => s + t.sugarfree, 0), 20);
   assert.throws(() => e.ledPrepare('verdetto'), /Conferma/);
   e.setSugarfreeLocked(true);
   assert.throws(() => e.setSugarfree('t3'), /bloccato/);
@@ -290,7 +290,7 @@ test('persistenza: lo stato sopravvive a un riavvio', () => {
   const copy = new ShowEngine(structuredClone(baseConfig), 'test');
   copy.load(JSON.parse(JSON.stringify(e.toJSON())));
   assert.equal(copy.s.reactions.c1.points, 4);
-  assert.equal(copy.quizPoints('t1'), 6);
+  assert.equal(copy.quizPoints('t1'), 10);
   assert.equal(copy.s.sessions.u.gen, 'genz');
 });
 
@@ -330,7 +330,7 @@ test('quiz: domanda e risposte una alla volta, timer dalla D, lettere nascoste f
   assert.deepEqual(q.squadre.map((t) => t.esito), [true, true, false]);
   assert.throws(() => e.quizAnswer('t3', 1), /già rivelata/);
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t.quiz]));
-  assert.deepEqual(by, { t1: 6, t2: 6, t3: 0 });
+  assert.deepEqual(by, { t1: 10, t2: 10, t3: 0 });
 });
 
 test('quiz con SOS: timer fermo, telefoni sulla stessa domanda, voti mostrati solo dopo le altre squadre, metà punti', () => {
@@ -361,7 +361,7 @@ test('quiz con SOS: timer fermo, telefoni sulla stessa domanda, voti mostrati so
   e.quizAnswer('t1', C('q1'));
   e.quizRevealTeams(); e.quizRevealCorrect();
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t.quiz]));
-  assert.deepEqual(by, { t1: 3, t2: 6, t3: 0 }); // con l'SOS metà punti
+  assert.deepEqual(by, { t1: 5, t2: 10, t3: 0 }); // con l'SOS metà punti
   e.quizOpen('q2');
   for (let i = 0; i < 5; i++) e.quizNext();
   assert.throws(() => e.quizSos('t1'), /già usato/); // un SOS per squadra in tutto lo show
@@ -369,10 +369,10 @@ test('quiz con SOS: timer fermo, telefoni sulla stessa domanda, voti mostrati so
 
 test('quiz: punti divisi per il numero di domande, sblocco d\'emergenza, rigioca', () => {
   const { e } = make();
-  assert.deepEqual(e.quizPointsPer(), { per: 6, sos: 3 }); // 5 domande: 30 / 5
+  assert.deepEqual(e.quizPointsPer(), { per: 10, sos: 5 }); // 5 domande: 50 / 5
   const five = e.quizList;
-  e.quizList = five.slice(0, 3);
-  assert.deepEqual(e.quizPointsPer(), { per: 10, sos: 5 }); // 3 domande: 30 / 3
+  e.quizList = five.slice(0, 2);
+  assert.deepEqual(e.quizPointsPer(), { per: 25, sos: 12.5 }); // il numero si adatta alle domande (la config valida che sia intero)
   e.quizList = five;
   e.quizOpen('q1');
   for (let i = 0; i < 5; i++) e.quizNext();
@@ -391,14 +391,14 @@ test('quiz: punti divisi per il numero di domande, sblocco d\'emergenza, rigioca
 test('punteggio: il massimo teorico e gli equilibri tra quiz, pubblico e Sugarfree', () => {
   const { e } = make();
   const { per, sos } = e.quizPointsPer();
-  assert.equal(per * baseConfig.quiz.domande.length, 30); // quiz pieno = 30
+  assert.equal(per * baseConfig.quiz.domande.length, 50); // quiz pieno = 50
   assert.equal(sos * 2, per);
-  // squadra perfetta senza SOS: 30 quiz + 30 pubblico + 25 Sugarfree = 85
+  // squadra perfetta senza SOS: 50 quiz + 30 pubblico + 20 Sugarfree = 100
   e.react('s1', [['c1', 'ride', 3]]); // le reazioni valgono solo prima del quiz
   for (const q of baseConfig.quiz.domande) play(e, q.id, { t1: C(q.id), t2: W(q.id), t3: W(q.id) });
   e.setSugarfree('t1');
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t]));
-  assert.equal(by.t1.totale, 85);
+  assert.equal(by.t1.totale, 100);
   assert.equal(by.t2.totale + by.t3.totale, 30); // premi pubblico 20 + 10 (pari: 15 + 15)
   // pubblico in parità totale: 20 a testa (60 / 3)
   const { e: e2 } = make();
@@ -421,7 +421,7 @@ test('quiz: la domanda si può rimettere sul LED dopo un\'altra scena, con lo st
 test('quiz: Rigioca restituisce l\'SOS e il LED resta fermo finché la domanda non riparte', () => {
   const { e } = make();
   play(e, 'q1', { t1: C('q1'), t2: C('q1'), t3: W('q1') }, { sos: 't1' });
-  assert.equal(e.quizPoints('t1'), 3);
+  assert.equal(e.quizPoints('t1'), 5);
   const before = JSON.stringify(e.screenState().program.quiz.opzioni);
   e.quizReset('q1');
   assert.equal(e.quizPoints('t1'), 0);
@@ -433,7 +433,7 @@ test('quiz: Rigioca restituisce l\'SOS e il LED resta fermo finché la domanda n
   e.closeSos('t');
   e.quizAnswer('t2', C('q1')); e.quizAnswer('t3', W('q1')); e.quizShowSos(); e.quizAnswer('t1', C('q1'));
   e.quizRevealTeams(); e.quizRevealCorrect();
-  assert.equal(e.quizPoints('t1'), 3); // di nuovo metà punti
+  assert.equal(e.quizPoints('t1'), 5); // di nuovo metà punti
 });
 
 test('quiz: una domanda lasciata a metà si riprende com\'era (niente secondo SOS)', () => {
@@ -457,7 +457,7 @@ test('quiz: niente SOS a tempo scaduto, lettere bloccate dopo i voti del pubblic
   e.quizSos('t1'); e.closeSos('t'); e.quizAnswer('t2', 0); e.quizAnswer('t3', 0); e.quizShowSos();
   assert.throws(() => e.quizAnswer('t2', 1), /non possono più cambiare/);
   e.quizAnswer('t1', 1); // la squadra dell'SOS sì
-  const bad = structuredClone(baseConfig); bad.quiz.domande = bad.quiz.domande.slice(0, 4); // 30 / 4 = 7,5
+  const bad = structuredClone(baseConfig); bad.quiz.domande = bad.quiz.domande.slice(0, 4); // 50 / 4 = 12,5
   assert.throws(() => validateConfig(bad), /punti interi/);
 });
 
