@@ -58,7 +58,7 @@
       }
       scene = p;
       if (p.type === 'sos' && p.sos) watchSos(p, !primed || sosSeen.key !== key);
-      if (p.type === 'quiz' && p.quiz) watchQuiz(p, !primed || quizSeen.key !== key);
+      if (p.type === 'quiz' && p.quiz) watchQuiz(p, !primed || quizSeen.key !== key, primed && quizSeen.key !== key);
       primed = true;
     });
     socket.on('connect', () => { connected = true; help(); });
@@ -133,8 +133,13 @@
         sos: !!S, sosChiuso: !!S && (S.closed || now >= S.endsAt), mostrato: !!S?.mostrato, lavagnette: z.teamsRevealed, giusta: z.corretta != null,
       };
     }
-    function watchQuiz(p, init) {
+    function watchQuiz(p, init, rientro = false) {
       const z = p.quiz, n = quizSnap(z), o = quizSeen;
+      if (rientro) { // la domanda torna sul LED (dopo un'altra scena): riprendono i suoni ancora in corso
+        const now = env.now(), T = z.timer, S = z.sos;
+        if (n.corre) { const left = (T.endsAt - now) / 1000; sounds.play('timerQuiz', { offset: T.dur / 1000 - left, stopAt: left, loopFrom: 0 }); }
+        if (S && !n.sosChiuso) { const left = (S.endsAt - now) / 1000; if (left > 0) sounds.play('tictac', { stopAt: left, loopFrom: 0 }); }
+      }
       if (!init && o.key === n.key) {
         for (let i = o.opz; i < n.opz; i++) sounds.play('pop');
         if (n.risposte > o.risposte) sounds.play('squadra');

@@ -76,6 +76,10 @@ export function validateConfig(c) {
   }
   if (ids(qd).size !== qd.length) err('id domande del quiz duplicati');
   if (c.quiz && !(c.quiz.timerSecondi > 0)) err('quiz.timerSecondi non valido');
+  if (qd.length) { // punti interi: totale diviso per le domande (e a metà con l'SOS)
+    const tot = c.punteggi?.quiz?.totale ?? 30, per = tot / qd.length;
+    if (!Number.isInteger(per) || (c.punteggi?.quiz?.sosMeta !== false && per % 2)) err(`punteggi.quiz.totale (${tot}) diviso ${qd.length} domande non dà punti interi${c.punteggi?.quiz?.sosMeta !== false ? ' e pari (servono per la metà con l\'SOS)' : ''}: cambia il totale (es. ${qd.length * 6})`);
+  }
   const gens = c.generazioni || [];
   if (!gens.length) err('servono le generazioni');
   for (const g of gens) {

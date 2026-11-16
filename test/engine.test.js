@@ -379,7 +379,8 @@ test('quiz: punti divisi per il numero di domande, sblocco d\'emergenza, rigioca
   e.quizSos('t3'); e.closeSos('test');
   assert.throws(() => e.quizShowSos(), /Prima devono rispondere/);
   e.quizShowSos({ force: true });
-  e.quizAnswer('t1', 0);
+  assert.throws(() => e.quizAnswer('t1', 0), /non possono più cambiare/); // ha visto i voti: non può più rispondere
+  e.quizAnswer('t3', 0); // la squadra dell'SOS sì
   e.quizRevealTeams({ force: true }); // chi non ha risposto prende 0
   e.quizRevealCorrect();
   e.quizReset('q1');
@@ -415,4 +416,47 @@ test('quiz: la domanda si può rimettere sul LED dopo un\'altra scena, con lo st
   assert.equal(q.opzioni.length, 4);
   assert.equal(q.squadre[0].risposto, true);
   assert.equal(q.timer.running, true);
+});
+
+test('quiz: Rigioca restituisce l\'SOS e il LED resta fermo finché la domanda non riparte', () => {
+  const { e } = make();
+  play(e, 'q1', { t1: C('q1'), t2: C('q1'), t3: W('q1') }, { sos: 't1' });
+  assert.equal(e.quizPoints('t1'), 3);
+  const before = JSON.stringify(e.screenState().program.quiz.opzioni);
+  e.quizReset('q1');
+  assert.equal(e.quizPoints('t1'), 0);
+  assert.equal(e.screenState().program.type, 'quiz'); // non salta al QR
+  e.quizOpen('q1');
+  assert.equal(JSON.stringify(e.screenState().program.quiz.opzioni), before); // «Prepara» non svuota il LED
+  for (let i = 0; i < 5; i++) e.quizNext();
+  e.quizSos('t1'); // l'SOS è tornato disponibile
+  e.closeSos('t');
+  e.quizAnswer('t2', C('q1')); e.quizAnswer('t3', W('q1')); e.quizShowSos(); e.quizAnswer('t1', C('q1'));
+  e.quizRevealTeams(); e.quizRevealCorrect();
+  assert.equal(e.quizPoints('t1'), 3); // di nuovo metà punti
+});
+
+test('quiz: una domanda lasciata a metà si riprende com\'era (niente secondo SOS)', () => {
+  const { e } = make();
+  e.quizOpen('q2'); for (let i = 0; i < 5; i++) e.quizNext();
+  e.quizAnswer('t2', 1); e.quizSos('t1'); e.closeSos('t');
+  e.quizOpen('q3'); // per sbaglio
+  e.quizOpen('q2');
+  assert.equal(e.s.qz.answers.t2, 1);
+  assert.equal(e.s.qz.sosTeam, 't1');
+  assert.throws(() => e.quizSos('t2'), /già stato un SOS/);
+});
+
+test('quiz: niente SOS a tempo scaduto, lettere bloccate dopo i voti del pubblico, config con punti non interi rifiutata', () => {
+  const { e, clock } = make();
+  e.quizOpen('q1'); for (let i = 0; i < 5; i++) e.quizNext();
+  clock.advance(61_000);
+  assert.throws(() => e.quizSos('t1'), /Tempo scaduto/);
+  e.quizReset('q1');
+  e.quizOpen('q1'); for (let i = 0; i < 5; i++) e.quizNext();
+  e.quizSos('t1'); e.closeSos('t'); e.quizAnswer('t2', 0); e.quizAnswer('t3', 0); e.quizShowSos();
+  assert.throws(() => e.quizAnswer('t2', 1), /non possono più cambiare/);
+  e.quizAnswer('t1', 1); // la squadra dell'SOS sì
+  const bad = structuredClone(baseConfig); bad.quiz.domande = bad.quiz.domande.slice(0, 4); // 30 / 4 = 7,5
+  assert.throws(() => validateConfig(bad), /punti interi/);
 });

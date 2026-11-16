@@ -271,6 +271,7 @@ function renderQuizPanel(P) {
   const z = A.qz;
   const qs = cfg.quiz.domande;
   const q = qs.find((x) => x.id === z.qid);
+  if (!q) { $('liveTitle').textContent = 'Quiz'; morph(P, '<p class="qp-warn">La domanda aperta non esiste più nella configurazione.</p><button class="tbtn" data-act="qClose">Chiudi la domanda</button>'); return; }
   const n = qs.indexOf(q) + 1;
   const sos = A.sos && A.sos.runId === z.sosRunId ? A.sos : null;
   const per = A.quizPerRisposta || { per: 10, sos: 5 };
@@ -281,9 +282,9 @@ function renderQuizPanel(P) {
   const timer = z.timer ? `<div class="big-timer small" id="qTimer">${qTimerText(z.timer)}</div>` : '';
   const rows = cfg.coppie.map((t) => {
     const a = z.answers[t.id], isSos = z.sosTeam === t.id, used = A.sosUsed[t.id];
-    const lockLetters = z.correctRevealed || z.step < 1;
+    const lockLetters = z.correctRevealed || z.step < 1 || (z.sosShown && t.id !== z.sosTeam);
     const sosBtn = z.correctRevealed || z.teamsRevealed ? '' : isSos ? '<span class="qp-sos on">🆘 SOS</span>'
-      : `<button class="tbtn small" data-qsos="${esc(t.id)}" ${z.step < 5 || z.sosTeam || used || (A.sos && !A.sos.closed) ? 'disabled' : ''} title="${used ? 'SOS già usato' : z.sosTeam ? 'Su questa domanda c\'è già stato un SOS' : 'La squadra chiede aiuto al pubblico'}">🆘${used ? ' usato' : ''}</button>`;
+      : `<button class="tbtn small" data-qsos="${esc(t.id)}" ${z.step < 5 || z.sosTeam || used || (A.sos && !A.sos.closed) || z.timer?.ended ? 'disabled' : ''} title="${used ? 'SOS già usato' : z.sosTeam ? 'Su questa domanda c\'è già stato un SOS' : 'La squadra chiede aiuto al pubblico'}">🆘${used ? ' usato' : ''}</button>`;
     const res = A.quizResults[z.qid]?.[t.id];
     const state = res ? (res.corretta ? `✓ giusta +${res.punti}` : '✗ sbagliata') : a == null ? 'pensa…' : z.teamsRevealed ? `sul LED: ${L[a]}` : `✓ ${L[a]} (nascosta)`;
     return `<tr class="${isSos ? 'sos-row' : ''}"><td><span class="sw-chip" style="background:${esc(t.colore)}"></span><b>${esc(t.nome.replace('Squadra ', ''))}</b></td>

@@ -250,8 +250,8 @@ export class ShowEngine {
   quizDef(qid) { const q = this.quizById[qid]; if (!q) throw new Error('Domanda del quiz inesistente'); return q; }
   quizPointsPer() {
     const P = this.config.punteggi.quiz || {};
-    const per = Math.round((P.totale ?? 30) / Math.max(1, this.quizList.length));
-    return { per, sos: P.sosMeta === false ? per : Math.round(per / 2) };
+    const per = (P.totale ?? 30) / Math.max(1, this.quizList.length); // la config garantisce che sia un intero (e pari, con sosMeta)
+    return { per, sos: P.sosMeta === false ? per : per / 2 };
   }
 
   /** Stato del timer: durata, fine (se corre), rimanente (se fermo), scaduto. */
@@ -270,6 +270,14 @@ export class ShowEngine {
     if (this.s.sos && !this.s.sos.closed) throw new Error('C\'è un SOS in corso: chiudilo prima');
     if (this.s.qz && this.s.qz.qid !== qid) this.quizArchive();
     if (this.s.quizResults[qid]) throw new Error('Domanda già giocata: per rifarla usa «Rigioca»');
+    if (this.s.qz?.qid === qid) return;
+    const saved = this.s.quizHistory[qid];
+    if (saved && !saved.azzerata) { // domanda lasciata a metà: si riprende com'era
+      this.s.qz = JSON.parse(JSON.stringify(saved));
+      this.log(`Quiz: domanda ${this.quizList.indexOf(q) + 1} ripresa da dove era rimasta`);
+      this.touch();
+      return;
+    }
     this.s.qz = {
       qid, step: 0, shownAt: [], answers: Object.fromEntries(this.teamIds.map((t) => [t, null])),
       timer: null, teamsRevealed: false, correctRevealed: false, sosTeam: null, sosRunId: null, sosShown: false,
@@ -306,6 +314,7 @@ export class ShowEngine {
     if (!this.teamIds.includes(teamId)) throw new Error('Squadra inesistente');
     if (z.correctRevealed) throw new Error('Risposta giusta già rivelata');
     if (z.step < 1) throw new Error('Mostra prima la domanda');
+    if (z.sosShown && teamId !== z.sosTeam) throw new Error('I voti del pubblico sono già sul LED: le altre squadre non possono più cambiare risposta');
     const q = this.quizDef(z.qid);
     const i = idx == null ? null : Math.floor(Number(idx));
     if (i != null && !(i >= 0 && i < q.opzioni.length)) throw new Error('Risposta inesistente');
@@ -323,6 +332,7 @@ export class ShowEngine {
     if (z.sosTeam) throw new Error('Su questa domanda c\'è già stato un SOS');
     if (this.s.sosUsed[teamId]) throw new Error(`${this.teamById[teamId].nome} ha già usato il suo SOS`);
     if (z.teamsRevealed) throw new Error('Risposte delle squadre già mostrate');
+    if (this.quizTimer(z)?.ended) throw new Error('Tempo scaduto: l\'SOS non si può più chiedere');
     const q = this.quizDef(z.qid);
     const run = this.startSos(`quiz:${z.qid}`, teamId, {
       alsoLed: false, quizQid: z.qid,
@@ -403,9 +413,12 @@ export class ShowEngine {
   /** Rigioca una domanda (errori in prova): cancella risultato e stato. */
   quizReset(qid) {
     this.quizDef(qid);
+    if (this.s.sos && !this.s.sos.closed && this.s.qz?.qid === qid && this.s.sos.runId === this.s.qz.sosRunId) throw new Error('C\'è un SOS in corso su questa domanda');
+    const st = (this.s.qz?.qid === qid ? this.s.qz : null) || this.s.quizHistory[qid];
+    if (st?.sosTeam && this.s.sosUsed[st.sosTeam] === `quiz:${qid}`) delete this.s.sosUsed[st.sosTeam]; // l'SOS torna disponibile
+    if (this.s.qz?.qid === qid) this.quizArchive();
+    if (this.s.quizHistory[qid]) this.s.quizHistory[qid].azzerata = true; // resta solo come immagine sul LED
     delete this.s.quizResults[qid];
-    delete this.s.quizHistory[qid];
-    if (this.s.qz?.qid === qid) this.s.qz = null;
     this.log(`Quiz: domanda ${this.quizList.findIndex((q) => q.id === qid) + 1} azzerata`);
     this.touch();
   }
@@ -421,7 +434,7 @@ export class ShowEngine {
   sosRun(z) { return z?.sosRunId ? (this.s.sos?.runId === z.sosRunId ? this.s.sos : this.s.sosHistory.find((h) => h.runId === z.sosRunId)) : null; }
 
   quizPoints(teamId) {
-    return Object.values(this.s.quizResults).reduce((sum, r) => sum + (r[teamId]?.punti || 0), 0);
+    return Object.entries(this.s.quizResults).reduce((sum, [qid, r]) => sum + (this.quizById[qid] ? r[teamId]?.punti || 0 : 0), 0); // solo domande ancora in config
   }
 
   // ---------- comandi regia: PUNTI ----------
@@ -672,7 +685,8 @@ export class ShowEngine {
   /** Scena «quiz» per il LED: solo quello che il pubblico deve vedere in questo momento. */
   resolveQuiz(scene) {
     const q = this.quizById[scene.qid];
-    const z = this.s.qz?.qid === scene.qid ? this.s.qz : this.s.quizHistory[scene.qid];
+    const live = this.s.qz?.qid === scene.qid ? this.s.qz : null;
+    const z = live && (live.step >= 1 || !this.s.quizHistory[scene.qid]) ? live : this.s.quizHistory[scene.qid]; // rigiocata: resta l'ultima immagine finché non riparte
     if (!q || !z) return { type: 'promo', t: scene.t };
     const visibili = Math.max(0, Math.min(4, z.step - 1));
     const r = this.sosRun(z);
