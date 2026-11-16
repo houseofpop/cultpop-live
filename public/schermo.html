@@ -138,7 +138,7 @@
       if (!init && o.key === n.key) {
         for (let i = o.opz; i < n.opz; i++) sounds.play('pop');
         if (n.risposte > o.risposte) sounds.play('squadra');
-        // suono del timer: dura quanto il timer; si ferma con l'SOS o le lavagnette e riprende dal punto giusto
+        // suono del timer (il file dura quanto il timer, 60 s; ripete solo se il timer venisse allungato): si ferma con l'SOS o le lavagnette e riprende dal punto giusto
         if (!o.corre && n.corre) { const T = z.timer, left = (T.endsAt - env.now()) / 1000; sounds.play('timerQuiz', { offset: (T.dur / 1000) - left, stopAt: left, loopFrom: 0 }); }
         if (o.corre && !n.corre) sounds.stop('timerQuiz');
         if (!o.tempo && n.tempo && !n.lavagnette) sounds.play('fine-sos');

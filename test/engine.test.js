@@ -403,3 +403,16 @@ test('punteggio: il massimo teorico e gli equilibri tra quiz, pubblico e Sugarfr
   const { e: e2 } = make();
   assert.deepEqual(e2.computeStandings().coppie.map((t) => t.pubblico), [20, 20, 20]);
 });
+
+test('quiz: la domanda si può rimettere sul LED dopo un\'altra scena, con lo stato intatto', () => {
+  const { e } = make();
+  e.quizOpen('q1'); for (let i = 0; i < 5; i++) e.quizNext();
+  e.quizAnswer('t1', 1);
+  e.ledPrepare('promo'); e.ledPublish();
+  assert.equal(e.screenState().program.type, 'promo');
+  e.quizToLed();
+  const q = e.screenState().program.quiz;
+  assert.equal(q.opzioni.length, 4);
+  assert.equal(q.squadre[0].risposto, true);
+  assert.equal(q.timer.running, true);
+});

@@ -118,7 +118,7 @@ function buildStatic() {
   }));
   $('openBtn').onclick = () => cmd('open', { open: !A.open }, A.open ? 'Chiudere la sessione? I telefoni torneranno in attesa.' : null);
   $('lockBtn').onclick = () => cmd('lock', { locked: !A.reactionsLocked });
-  $('backBtn').onclick = () => cmd('reactions');
+  $('backBtn').onclick = () => cmd('reactions', {}, A?.sos && !A.sos.closed ? 'Il voto SOS è ancora aperto: tornando alle reazioni lo chiudi adesso. Continuare?' : null);
   $('pngBtn').onclick = () => downloadPng($('programCv'), `cultpop-led-${new Date().toTimeString().slice(0, 8).replace(/:/g, '')}.png`);
   $('resetBtn').onclick = () => {
     if (show === 'live') { const c = prompt('Stai per AZZERARE LO SHOW LIVE. Scrivi: AZZERA LIVE'); if (c) cmd('reset', { confirm: c }); }
@@ -136,10 +136,10 @@ function buildStatic() {
     window.__regiaDelegated = true;
     // barra spaziatrice: domanda e risposte del quiz una alla volta (mai mentre si scrive in un campo)
     document.addEventListener('keydown', (e) => {
-      if (e.code !== 'Space' || e.repeat || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
-      if (!A?.qz || A.qz.step >= 5) return;
-      e.preventDefault();
-      cmd('quizNext');
+      if (e.code !== 'Space' || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
+      e.preventDefault(); // la barra non deve mai premere per sbaglio il pulsante selezionato (es. ✕ o «Rivela»)
+      document.activeElement?.blur?.();
+      if (!e.repeat && A?.qz && A.qz.step < 5) cmd('quizNext');
     });
     setupHold();
     document.addEventListener('click', (e) => {
@@ -158,13 +158,14 @@ function buildStatic() {
       else if (d.qsos) cmd('quizSos', { teamId: d.qsos }, `SOS per ${teamName(d.qsos)}? Il timer si ferma e il pubblico vota dal telefono.`);
       else if (d.act === 'qNext') cmd('quizNext');
       else if (d.act === 'qClose') cmd('quizClose');
+      else if (d.act === 'qToLed') cmd('quizToLed');
       else if (d.act === 'qShowSos') cmd('quizShowSos');
       else if (d.act === 'qTeams') cmd('quizRevealTeams');
       else if (d.act === 'qCorrect') cmd('quizRevealCorrect', {}, 'Rivelare la risposta giusta? I punti vengono assegnati.');
       else if (d.sf !== undefined) cmd('sugarfree', { teamId: d.sf || null });
       else if (d.del) cmd('adjDel', { id: d.del }, 'Annullare questa correzione?');
       else if (d.scene) cmd('ledPrepare', { type: d.scene });
-      else if (d.act === 'back') cmd('reactions');
+      else if (d.act === 'back') cmd('reactions', {}, A.sos && !A.sos.closed ? 'Il voto SOS è ancora aperto: tornando alle reazioni lo chiudi adesso. Continuare?' : null);
       else if (d.act === 'sosClose') cmd('sosClose', {}, 'Chiudere subito il voto SOS?');
       else if (d.act === 'sosReveal') cmd('sosReveal');
       else if (d.act === 'sosToLed') { cmd('ledPrepare', { type: 'sos' }); }
@@ -317,6 +318,7 @@ function renderQuizPanel(P) {
       ${q.daVerificare ? '<p class="qp-warn">⚠️ Risposta giusta ancora da confermare (config/show.json → quiz.domande, daVerificare).</p>' : ''}
       <div class="qp-answers">${q.opzioni.map((o, i) => `<span class="${i === q.corretta ? 'ok' : ''} ${z.step >= i + 2 ? 'on' : ''}">${L[i]}. ${esc(o)}${i === q.corretta ? ' ✅' : ''}</span>`).join('')}</div>
       <button class="tbtn big qp-next" data-act="qNext" ${z.step >= 5 ? 'disabled' : ''}>${nextLabel}</button>
+      ${z.step >= 1 && !(A.led.program?.type === 'quiz' && A.led.program.qid === z.qid) ? '<p class="qp-warn">⚠️ Sul LED adesso c\'è un\'altra scena.</p><button class="tbtn warn" data-act="qToLed">🖥 Rimetti questa domanda sul LED</button>' : ''}
       <table class="qp-teams"><thead><tr><th>Squadra</th><th>Lavagnetta</th><th>Stato</th><th>SOS</th></tr></thead><tbody>${rows}</tbody></table>
       <p class="muted">Segna la lettera di ogni squadra quando girano le lavagnette: sul LED compare solo «ha risposto» finché non mostri le risposte. Giusta = ${per.per} punti, con l'SOS ${per.sos}. ✅ = risposta giusta (solo in regia).</p>
       ${sosBox}

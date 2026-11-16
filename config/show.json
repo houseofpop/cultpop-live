@@ -52,7 +52,7 @@
       "colpo": "audio/colpo.mp3",
       "fanfara": "audio/fanfara.mp3",
       "applauso": "audio/applauso.mp3",
-      "timerQuiz": "audio/tictac.wav"
+      "timerQuiz": "audio/timer-quiz.mp3"
     },
     "intro": {
       "attiva": true,

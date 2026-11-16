@@ -380,6 +380,17 @@ export class ShowEngine {
     this.touch();
   }
 
+  /** Ripubblica sul LED la domanda in corso (se nel frattempo è andata in onda un'altra scena). */
+  quizToLed() {
+    const z = this.s.qz;
+    if (!z || z.step < 1) throw new Error('Nessuna domanda sul LED da ripristinare');
+    const t = this.now();
+    this.s.led.preview = { type: 'quiz', qid: z.qid, t };
+    this.s.led.program = { type: 'quiz', qid: z.qid, t, publishedAt: t };
+    this.log('LED → Quiz: domanda ripristinata');
+    this.touch();
+  }
+
   /** Chiude la domanda in corso (la regia torna al pannello delle reazioni; il LED resta com'è). */
   quizClose() {
     if (!this.s.qz) return;
