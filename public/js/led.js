@@ -751,6 +751,15 @@ function premio(g, scene) {
     }
   }
   if (o != null && o > T.centro - 200 && live) confetti(ctx, W, H, u, o - T.centro + 200);
+  if (o != null && o > T.centro + 5000 && live) { // poi una pioggia leggera di coriandoli, all'infinito: la scena può restare quanto serve
+    const ka = Math.min(1, (o - T.centro - 5000) / 2500), cols = [C.lime, C.fucsia, C.turchese, C.giallo, C.viola, '#ffffff'];
+    for (let i = 0; i < 70; i++) {
+      const r = rng(i * 13 + 5), sp = (90 + r() * 90) * u, per = (H + 80 * u) / sp * 1000, ph = ((o + r() * per) % per) / per;
+      const x = r() * W + Math.sin(o / 700 + i) * 22 * u, y = -40 * u + ph * (H + 80 * u);
+      ctx.save(); ctx.globalAlpha = ka * 0.85; ctx.translate(x, y); ctx.rotate(o / (300 + r() * 400) + i);
+      ctx.fillStyle = cols[i % cols.length]; ctx.fillRect(-6 * u, -3 * u, 12 * u * Math.abs(Math.cos(o / 260 + i)) + 2 * u, 6 * u); ctx.restore();
+    }
+  }
 }
 
 // ---------- FINE: grazie e seguici (con la canzone sotto) ----------

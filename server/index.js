@@ -213,6 +213,7 @@ adminNs.on('connection', (socket) => {
     adjDel: (e, a) => e.removeAdjustment(a.id),
     ledPrepare: (e, a) => e.ledPrepare(a.type),
     ledPublish: (e) => e.ledPublish(),
+    ledFinale: (e) => e.ledFinale(),
     reset: (_e, a) => {
       if (showId === 'live' && a.confirm !== 'AZZERA LIVE') throw new Error('Per azzerare il LIVE scrivi esattamente: AZZERA LIVE');
       resetShow(showId);

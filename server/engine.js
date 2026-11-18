@@ -517,6 +517,14 @@ export class ShowEngine {
     this.touch();
   }
 
+  /** Dopo la premiazione: «Grazie e seguici» va sul LED con un solo clic (anteprima + pubblica insieme). */
+  ledFinale() {
+    const p = this.s.led.program;
+    if (p?.type !== 'premio' || !p.apertoAt) throw new Error('Prima apri la busta della premiazione');
+    this.ledPrepare('fine');
+    this.ledPublish();
+  }
+
   /** Premiazione: la busta sul LED si apre e ne esce la gift card (subito, in sincrono con il palco). */
   premioApri() {
     const p = this.s.led.program;

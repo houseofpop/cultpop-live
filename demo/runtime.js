@@ -107,6 +107,7 @@ const commands = {
   adjDel: (e, a) => e.removeAdjustment(a.id),
   ledPrepare: (e, a) => e.ledPrepare(a.type),
   ledPublish: (e) => e.ledPublish(),
+  ledFinale: (e) => e.ledFinale(),
   reset: () => { resetAll(); },
 };
 function runCmd(msg) {

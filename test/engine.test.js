@@ -500,6 +500,11 @@ test('Premiazione: solo dopo il verdetto, la busta si apre una volta sola e solo
   e.premioApri();
   assert.equal(e.screenState().program.apertoAt, clock.now());
   assert.throws(() => e.premioApri(), /già aperta/);
+  e.ledFinale(); // un clic: Grazie e seguici direttamente sul LED
+  assert.equal(e.screenState().program.type, 'fine');
+  assert.throws(() => e.ledFinale(), /busta/);
+  e.ledPrepare('premio'); e.ledPublish();
+  assert.throws(() => e.ledFinale(), /busta/); // busta ancora chiusa
   e.ledPrepare('premio'); e.ledPublish(); // ripubblicata (es. in prova): busta di nuovo chiusa
   assert.equal(e.screenState().program.apertoAt, undefined);
 });
