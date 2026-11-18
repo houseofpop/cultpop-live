@@ -80,17 +80,17 @@
   "coppie": [
     {
       "id": "t1",
-      "nome": "Squadra Lime",
+      "nome": "Le Rosse",
       "colore": "#D2FD3A"
     },
     {
       "id": "t2",
-      "nome": "Squadra Fucsia",
+      "nome": "I Fratelli",
       "colore": "#FD7DFF"
     },
     {
       "id": "t3",
-      "nome": "Squadra Turchese",
+      "nome": "Perfetti Sconosciuti",
       "colore": "#3CBF9E"
     }
   ],

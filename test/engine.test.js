@@ -264,7 +264,7 @@ test('parità di punteggio segnalata alla regia', () => {
   play(e, 'q1', { t1: C('q1'), t2: C('q1'), t3: W('q1') });
   const p = e.adminState().parita;
   assert.equal(p.length, 1);
-  assert.deepEqual(p[0].squadre.sort(), ['Squadra Fucsia', 'Squadra Lime']);
+  assert.deepEqual(p[0].squadre.sort(), ['I Fratelli', 'Le Rosse']);
   play(e, 'q2', { t1: W('q2'), t2: C('q2'), t3: W('q2') });
   assert.equal(e.adminState().parita.length, 0);
 });
@@ -360,7 +360,7 @@ test('quiz con SOS: timer fermo, telefoni sulla stessa domanda, voti mostrati so
   assert.equal(e.s.sos.closed, true);
   assert.equal(e.screenState().program.quiz.corretta, null); // l'SOS NON rivela la risposta giusta
   e.quizAnswer('t2', C('q1'));
-  assert.throws(() => e.quizShowSos(), /Squadra Turchese/); // le altre squadre rispondono prima
+  assert.throws(() => e.quizShowSos(), /Perfetti Sconosciuti/); // le altre squadre rispondono prima
   e.quizAnswer('t3', W('q1'));
   e.quizShowSos();
   assert.ok(e.screenState().program.quiz.sos.counts);

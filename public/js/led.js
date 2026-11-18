@@ -321,7 +321,7 @@ function sos(g, scene) {
   if (!s) return promo(g);
   const y0 = title(g, 'SOS DEL PUBBLICO', 34 * u, { size: 78, color: C.viola });
   logo(g, 40 * u, 26 * u, 140 * u);
-  if (s.coppia) tag(g, `AIUTA LA ${s.coppia.toUpperCase()}`, W / 2, y0, { bg: s.colore || C.lime, size: 30 });
+  if (s.coppia) tag(g, `AIUTA ${s.coppia.toUpperCase()}`, W / 2, y0, { bg: s.colore || C.lime, size: 30 });
   const wide = W / H > 1.3;
   const now = env.now ? env.now() : Date.now();
   const left = Math.max(0, s.endsAt - now);
@@ -429,7 +429,7 @@ function quiz(g, scene) {
   logo(g, 40 * u, 24 * u, 130 * u);
   const S = z.sos;
   const sosVoting = S && !S.closed && now < S.endsAt;
-  if (S) tag(g, sosVoting ? `🆘 SOS · IL PUBBLICO AIUTA LA ${S.coppia.toUpperCase()}` : `🆘 SOS DELLA ${S.coppia.toUpperCase()}`, W / 2, y0, { bg: S.colore || C.lime, size: 28 });
+  if (S) tag(g, sosVoting ? `🆘 SOS · IL PUBBLICO AIUTA ${S.coppia.toUpperCase()}` : `🆘 SOS · ${S.coppia.toUpperCase()}`, W / 2, y0, { bg: S.colore || C.lime, size: 28 });
   if (!z.testo) return;
   const wide = W / H > 1.3;
   // cerchio a destra della domanda: countdown dell'SOS mentre si vota, altrimenti il timer del quiz
@@ -560,8 +560,8 @@ function sugarfreeScene(g, scene) {
   const landed = o != null && o >= T.atterra;
   const k = (d) => (live ? ease((t - d) / 600) : 1);
   logo(g, 40 * u, 26 * u, 140 * u);
-  const name = chosen >= 0 ? squadre[chosen].nome.replace(/^squadra\s+/i, '').toUpperCase() : '';
-  const head = landed ? `+${punti} ALLA SQUADRA ${name}!` : (S.titolo || 'LA PAROLA AGLI SUGARFREE');
+  const name = chosen >= 0 ? squadre[chosen].nome.toUpperCase() : '';
+  const head = landed ? `+${punti} PER ${name}!` : (S.titolo || 'LA PAROLA AGLI SUGARFREE');
   ctx.font = `900 ${76 * u}px ${F}`;
   const maxT = W - 420 * u, tS = Math.max(44, Math.min(76, 76 * maxT / ctx.measureText(head).width));
   const y0 = title(g, head, 30 * u + (76 - tS) * 0.6 * u, { size: tS, color: landed ? (squadre[chosen]?.colore === C.lime ? C.viola : C.viola) : C.viola, maxW: maxT });
@@ -706,10 +706,10 @@ function premio(g, scene) {
   vg.addColorStop(0, 'rgba(40,26,8,.30)'); vg.addColorStop(0.45, 'rgba(20,13,22,.72)'); vg.addColorStop(1, 'rgba(10,7,14,.92)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   logo(g, 40 * u, 26 * u, 140 * u);
-  // titolo: «LA SQUADRA FUCSIA VINCE...» (senza ripetere «squadra» se il nome lo contiene già)
+  // titolo: «LE ROSSE VINCONO...» (i nomi delle squadre sono plurali)
   const vinc = scene.vincitori || [];
-  const nome = (v) => v.nome.replace(/^squadra\s+/i, '').toUpperCase();
-  const head = vinc.length > 1 ? `LE SQUADRE ${vinc.map(nome).join(' E ')} VINCONO...` : vinc.length ? `LA SQUADRA ${nome(vinc[0])} VINCE...` : (P.titolo || 'LA PREMIAZIONE').toUpperCase();
+  const nome = (v) => v.nome.toUpperCase();
+  const head = vinc.length === 1 && /^squadra\s/i.test(vinc[0].nome) ? `LA ${nome(vinc[0])} VINCE...` : vinc.length ? `${vinc.map(nome).join(' E ')} VINCONO...` : (P.titolo || 'LA PREMIAZIONE').toUpperCase();
   ctx.font = `900 ${76 * u}px ${F}`;
   const maxT = W - 420 * u, tSize = Math.max(44, Math.min(76, 76 * maxT / ctx.measureText(head).width)); // nomi lunghi: carattere più piccolo, non schiacciato
   const y0 = title(g, head, 30 * u + (76 - tSize) * 0.6 * u, { size: tSize, color: C.viola, maxW: maxT });
@@ -1034,7 +1034,7 @@ function verdetto(g, scene) {
   const sinceLast = riv.length >= positions.length ? now - riv[positions.length - 1] : null;
   const kw = g.el === Infinity ? 1 : sinceLast == null ? 0 : ease((sinceLast - 500) / 600);
   if (kw > 0 && winners.length) {
-    const txt = winners.length > 1 ? 'EX AEQUO! VINCONO ' + winners.map((w) => w.nome.toUpperCase()).join(' E ') : `VINCE LA ${winners[0].nome.toUpperCase()}!`;
+    const txt = winners.length > 1 ? 'EX AEQUO! VINCONO ' + winners.map((w) => w.nome.toUpperCase()).join(' E ') : `VINCONO ${winners[0].nome.toUpperCase()}!`;
     ctx.save(); ctx.globalAlpha = kw;
     ctx.font = `900 ${64 * u}px ${F}`;
     const tw = Math.min(ctx.measureText(txt).width, W - 200 * u);
