@@ -53,6 +53,7 @@ export function drawScene(cv, scene, env, { width = 1920, height = 1080, el = In
   else if (type === 'fine') fine(g);
   else if (type === 'premio') premio(g, scene);
   else if (type === 'sugarfree') sugarfreeScene(g, scene);
+  else if (type === 'quiztime') quizTime(g);
   else if (type === 'verdetto') verdetto(g, scene);
   else if (type === 'chiuse') chiuse(g);
   return cv;
@@ -543,6 +544,49 @@ function quiz(g, scene) {
     ctx.font = `900 ${38 * u}px ${F}`;
     ctx.fillText(status, x + 22 * u, sy + 90 * u, sw - 44 * u);
   });
+}
+
+// ---------- QUIZ TIME: schermata tappo prima (e tra) le domande ----------
+function quizTime(g) {
+  const { ctx, W, H, u, t, env } = g;
+  const live = g.el !== Infinity;
+  const k = (d, dur = 600) => (live ? ease((t - d) / dur) : 1);
+  const pop = (d) => { if (!live) return 1; const x = Math.min(1, Math.max(0, (t - d) / 600)); return x >= 1 ? 1 : 1 + 2.6 * Math.pow(x - 1, 3) + 1.6 * Math.pow(x - 1, 2); };
+  logo(g, 54 * u, 40 * u, 170 * u);
+  // punti interrogativi che galleggiano
+  const cols = [C.viola, C.fucsia, C.turchese, C.giallo, C.lime];
+  for (let i = 0; i < 16; i++) {
+    const r = rng(i * 9 + 4), sp = 9000 + r() * 6000, ph = live ? ((t + r() * sp) % sp) / sp : r();
+    const x = 60 * u + r() * (W - 120 * u), y = H + 80 * u - ph * (H + 160 * u), sz = (60 + r() * 90) * u;
+    ctx.save(); ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.55 * k(200); ctx.translate(x, y); ctx.rotate(Math.sin(t / 900 + i) * 0.4);
+    ctx.font = `900 ${sz}px ${F}`; ctx.textAlign = 'center'; ctx.fillStyle = cols[i % cols.length];
+    ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 4 * u; ctx.strokeText('?', 0, 0); ctx.fillText('?', 0, 0); ctx.restore();
+  }
+  // QUIZ TIME
+  const s1 = pop(0), wob = live ? Math.sin(t / 700) * 0.015 : 0, beat = live ? 1 + Math.max(0, Math.sin(t / 380)) * 0.025 : 1;
+  ctx.save(); ctx.translate(W / 2, H * 0.44); ctx.rotate(-0.04 + wob); ctx.scale(s1 * beat, s1 * beat);
+  ctx.font = `900 ${250 * u}px ${F}`; ctx.textAlign = 'center';
+  const tw = Math.min(ctx.measureText('QUIZ TIME').width, W - 300 * u);
+  brush(ctx, -tw / 2 - 90 * u, -215 * u, tw + 180 * u, 290 * u, C.viola, 17);
+  ctx.fillStyle = C.inchiostro; ctx.fillText('QUIZ TIME', 10 * u, 12 * u, W - 300 * u);
+  ctx.fillStyle = '#fff'; ctx.fillText('QUIZ TIME', 0, 0, W - 300 * u);
+  ctx.restore();
+  // le tre squadre
+  const teams = env.config?.coppie || [];
+  ctx.font = `900 ${44 * u}px ${F}`;
+  const pad = 34 * u, gap = 36 * u, ws = teams.map((tm) => ctx.measureText(tm.nome.toUpperCase()).width + pad * 2);
+  let x = W / 2 - (ws.reduce((a, b) => a + b, 0) + gap * (teams.length - 1)) / 2;
+  teams.forEach((tm, i) => {
+    const kk = pop(500 + i * 180), w = ws[i], h = 86 * u, y = H * 0.74 + (live ? Math.sin(t / 500 + i * 1.3) * 6 * u : 0);
+    ctx.save(); ctx.globalAlpha = Math.min(1, kk); ctx.translate(x + w / 2, y + h / 2); ctx.rotate([-0.03, 0.02, -0.015][i % 3]); ctx.scale(kk, kk);
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(-w / 2 + 8 * u, -h / 2 + 8 * u, w, h);
+    ctx.fillStyle = tm.colore; ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.lineWidth = 3 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(-w / 2, -h / 2, w, h);
+    ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center'; ctx.fillText(tm.nome.toUpperCase(), 0, 16 * u);
+    ctx.restore();
+    x += w + gap;
+  });
+  ctx.textAlign = 'left';
 }
 
 // ---------- VOTO SUGARFREE: la foto della band, i +25 in attesa, poi volano sulla squadra scelta ----------
@@ -1085,7 +1129,7 @@ function confetti(ctx, W, H, u, t) {
   ctx.globalAlpha = 1;
 }
 
-export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', sugarfree: 'Voto Sugarfree', verdetto: 'Verdetto finale', premio: 'Premiazione', fine: 'Grazie e seguici' };
+export const SCENE_LABEL = { quiztime: 'Quiz time', promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', sugarfree: 'Voto Sugarfree', verdetto: 'Verdetto finale', premio: 'Premiazione', fine: 'Grazie e seguici' };
 
 // ---------- VOTAZIONI CHIUSE: attesa del verdetto ----------
 function chiuse(g) {

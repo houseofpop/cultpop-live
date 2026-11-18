@@ -161,6 +161,7 @@ function buildStatic() {
       else if (d.act === 'premioApri') cmd('premioApri');
       else if (d.act === 'verdettoAvanti') cmd('verdettoAvanti');
       else if (d.act === 'ledFinale') cmd('ledFinale');
+      else if (d.act === 'ledQuizTime') cmd('ledQuizTime', {}, A.qz && A.qz.step > 0 && !A.qz.correctRevealed ? 'C\'è una domanda in corso: QUIZ TIME la copre sul LED (poi «Rimetti questa domanda sul LED»). Continuare?' : null);
       else if (d.act === 'qClose') cmd('quizClose');
       else if (d.act === 'qToLed') cmd('quizToLed');
       else if (d.act === 'qShowSos') cmd('quizShowSos');
@@ -444,6 +445,8 @@ function renderLed() {
     vb.classList.toggle('primo', ultimo);
     vb.textContent = ultimo ? `🥇 SVELA IL VINCITORE (${vNext}° posto)` : `${vNext === 2 ? '🥈' : '🥉'} SVELA IL ${vNext}° POSTO`;
   }
+  const qtOn = program?.type === 'quiztime';
+  $('quizTimeBtn').classList.toggle('on', qtOn); $('quizTimeBtn').textContent = qtOn ? '✓ QUIZ TIME sul LED' : '🖥 QUIZ TIME sul LED';
   $('premioBtn').hidden = !(program?.type === 'premio' && !program.apertoAt);
   $('ledFinaleBtn').hidden = !(program?.type === 'premio' && program.apertoAt);
   const pubBtn = $('publishBtn');

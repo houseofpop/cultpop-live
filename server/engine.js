@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
  */
 
 export const MODES = ['attesa', 'reazioni', 'sos', 'finale'];
-export const LED_SCENES = ['promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'sugarfree', 'verdetto', 'premio', 'fine'];
+export const LED_SCENES = ['quiztime', 'promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'sugarfree', 'verdetto', 'premio', 'fine'];
 /** Passi di una domanda del quiz: 0 preparata, 1 domanda sul LED, 2..5 risposte A..D visibili (con la D parte il timer). */
 export const QUIZ_LAST_STEP = 5;
 const SOS_GRACE_MS = 600; // tolleranza di rete per i voti arrivati a ridosso dello scadere
@@ -536,6 +536,12 @@ export class ShowEngine {
     const pos = [...new Set(p.standings.coppie.map((t) => t.posizione))].sort((a, b) => b - a)[p.rivelati.length - 1];
     this.log(`LED → Verdetto: svelato il ${pos}° posto`);
     this.touch();
+  }
+
+  /** «QUIZ TIME»: schermata tappo per il quiz, va sul LED con un clic (anteprima + pubblica insieme). */
+  ledQuizTime() {
+    this.ledPrepare('quiztime');
+    this.ledPublish();
   }
 
   /** Dopo la premiazione: «Grazie e seguici» va sul LED con un solo clic (anteprima + pubblica insieme). */

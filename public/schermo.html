@@ -83,7 +83,7 @@
       else if (p.type === 'classifica') {
         (p.standings?.coppie || []).forEach((_, i) => sounds.play('squadra', { at: CLASSIFICA_STEPS(i) / 1000 })); // un suono per ogni squadra che entra
       }
-      else if (p.type === 'quiz') sounds.play('whoosh'); // compare la domanda
+      else if (p.type === 'quiz' || p.type === 'quiztime') sounds.play('whoosh'); // compare la domanda / QUIZ TIME
       else if (p.type === 'generazioni') {
         sounds.play('whoosh');
         const n = Object.values(p.stats?.counts || {}).filter((c) => c > 0).length; // una barra per ogni generazione presente

@@ -109,6 +109,7 @@ const commands = {
   ledPrepare: (e, a) => e.ledPrepare(a.type),
   ledPublish: (e) => e.ledPublish(),
   ledFinale: (e) => e.ledFinale(),
+  ledQuizTime: (e) => e.ledQuizTime(),
   reset: () => { resetAll(); },
 };
 function runCmd(msg) {

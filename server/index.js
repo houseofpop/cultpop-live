@@ -215,6 +215,7 @@ adminNs.on('connection', (socket) => {
     ledPrepare: (e, a) => e.ledPrepare(a.type),
     ledPublish: (e) => e.ledPublish(),
     ledFinale: (e) => e.ledFinale(),
+    ledQuizTime: (e) => e.ledQuizTime(),
     reset: (_e, a) => {
       if (showId === 'live' && a.confirm !== 'AZZERA LIVE') throw new Error('Per azzerare il LIVE scrivi esattamente: AZZERA LIVE');
       resetShow(showId);

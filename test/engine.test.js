@@ -533,3 +533,11 @@ test('Scena Sugarfree: squadre in attesa, la scelta compare solo alla conferma d
   e.setSugarfreeLocked(false);
   assert.equal(e.screenState().program.scelta, null); // sbloccato: il LED torna in attesa
 });
+
+test('QUIZ TIME: va sul LED con un clic, poi la domanda del quiz la sostituisce', () => {
+  const { e } = make();
+  e.ledQuizTime();
+  assert.equal(e.screenState().program.type, 'quiztime');
+  e.quizOpen('q1'); e.quizNext();
+  assert.equal(e.screenState().program.type, 'quiz');
+});
