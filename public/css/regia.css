@@ -149,6 +149,8 @@ h2.mt { margin-top: 24px; }
 .publish { background: var(--viola); color: #fff; }
 .publish.danger-hold { background: var(--inchiostro); color: #fff; }
 .publish:disabled { background: #d9d6dd; color: #4b4553; }
+.publish.verdetto { background: var(--giallo); color: var(--inchiostro); font-size: 1.35rem; padding: 18px; }
+.publish.verdetto.primo { background: linear-gradient(135deg, #d9a63a, #fbe7a1 50%, #c9902a); }
 .publish.finale { background: var(--fucsia); color: var(--inchiostro); font-size: 1.25rem; padding: 16px; }
 .publish.premio { background: linear-gradient(135deg, #d9a63a, #fbe7a1 50%, #c9902a); color: var(--inchiostro); font-size: 1.35rem; padding: 18px; }
 .scene-btns button { color: var(--inchiostro); background: #fff; border-width: 3px; font-size: .9rem; }

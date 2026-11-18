@@ -61,6 +61,7 @@ export class ShowEngine {
       adjustments: [],
       led: { preview: null, program: { type: 'promo', t: this.now() } },
       verdictPublished: false,
+      verdictDone: false, // tutte le posizioni svelate sul LED (solo dopo i telefoni vedono la classifica)
       verdict: null,
       log: [],
       createdAt: this.now(),
@@ -492,7 +493,7 @@ export class ShowEngine {
       scene.runId = r.runId;
     }
     if (type === 'premio') { // premiazione: busta dorata per la squadra vincitrice (dal verdetto pubblicato)
-      if (!this.s.verdictPublished || !this.s.verdict) throw new Error('Prima pubblica il verdetto: la premiazione svela la squadra vincitrice');
+      if (!this.s.verdictDone || !this.s.verdict) throw new Error('Prima pubblica il verdetto e svela tutte le posizioni');
       const st = this.s.verdict;
       scene.vincitori = st.coppie.filter((t) => t.posizione === 1).map((t) => ({ nome: t.nome, colore: t.colore, membri: t.membri.map((id) => this.contById[id]?.nome).filter(Boolean) }));
     }
@@ -513,8 +514,27 @@ export class ShowEngine {
     const p = this.s.led.preview;
     if (!p) throw new Error('Nessuna anteprima da pubblicare');
     this.s.led.program = { ...p, publishedAt: this.now() };
-    if (p.type === 'verdetto') { this.s.verdictPublished = true; this.s.verdict = p.standings; }
+    if (p.type === 'verdetto') {
+      this.s.verdictPublished = true; this.s.verdict = p.standings; this.s.verdictDone = false;
+      this.s.led.program.rivelati = []; // le posizioni si svelano una alla volta, quando lo decide la regia
+    }
     this.log(`LED: PUBBLICATO (${p.type})`);
+    this.touch();
+  }
+
+  /** Verdetto: svela la prossima posizione (3°, poi 2°, poi 1°). */
+  verdettoAvanti() {
+    const p = this.s.led.program;
+    if (p?.type !== 'verdetto') throw new Error('Prima pubblica il verdetto sul LED');
+    const n = new Set((p.standings?.coppie || []).map((t) => t.posizione)).size;
+    p.rivelati ||= [];
+    if (p.rivelati.length >= n) throw new Error('Il verdetto è già tutto svelato');
+    const last = p.rivelati[p.rivelati.length - 1];
+    if (last && this.now() - last < 1500) throw new Error('Un attimo: la posizione precedente sta ancora comparendo');
+    p.rivelati.push(this.now());
+    if (p.rivelati.length === n) this.s.verdictDone = true;
+    const pos = [...new Set(p.standings.coppie.map((t) => t.posizione))].sort((a, b) => b - a)[p.rivelati.length - 1];
+    this.log(`LED → Verdetto: svelato il ${pos}° posto`);
     this.touch();
   }
 
@@ -760,7 +780,7 @@ export class ShowEngine {
       out.sos = { runId: s.sos.runId, domanda: def.domanda, opzioni: def.opzioni, startedAt: s.sos.startedAt, endsAt: s.sos.endsAt, closed: s.sos.closed };
     }
     // la classifica arriva sui telefoni SOLO dopo la pubblicazione del verdetto
-    if (s.mode === 'finale' && s.verdictPublished && s.verdict) {
+    if (s.mode === 'finale' && s.verdictDone && s.verdict) {
       out.classifica = s.verdict.coppie.map(({ id, nome, colore, totale, posizione }) => ({ id, nome, colore, totale, posizione }));
     }
     return out;
@@ -794,6 +814,7 @@ export class ShowEngine {
       genStats: this.genStats(),
       led: { preview: this.resolveScene(s.led.preview), program: this.resolveScene(s.led.program) },
       verdictPublished: s.verdictPublished,
+      verdictDone: s.verdictDone,
       sessionsTotal: Object.keys(s.sessions).length,
       log: s.log.slice(0, 60),
       ...extra,

@@ -21,7 +21,7 @@
   <script type="module">
     // Pagina per il LED wall: il tecnico la carica come sorgente web (o la mostra a tutto schermo da un portatile).
     // Mostra SOLO ciò che la regia ha pubblicato. Se la connessione cade, resta l'ultima immagine (nessun avviso visibile in onda).
-    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS, CLASSIFICA_STEPS, GENERAZIONI_STEPS, SOS_BARRE, QUIZ_TEAM_STEP, SF_TEMPI } from '/js/led.js';
+    import { drawScene, prepareAssets, downloadPng, CLASSIFICA_STEPS, GENERAZIONI_STEPS, SOS_BARRE, QUIZ_TEAM_STEP, SF_TEMPI } from '/js/led.js';
     import { createSounds } from '/js/suoni.js';
     const q = new URLSearchParams(location.search);
     const size = { width: Number(q.get('w')) || 1920, height: Number(q.get('h')) || 1080 };
@@ -61,6 +61,7 @@
       if (p.type === 'quiz' && p.quiz) watchQuiz(p, !primed || quizSeen.key !== key, primed && quizSeen.key !== key);
       if (p.type === 'premio') watchPremio(p, !primed || premioSeen.key !== key);
       if (p.type === 'sugarfree') watchSugarfree(p, !primed || sfSeen.key !== key);
+      if (p.type === 'verdetto') watchVerdetto(p, !primed || verdSeen.key !== key);
       primed = true;
     });
     socket.on('connect', () => { connected = true; help(); });
@@ -91,16 +92,21 @@
       else if (p.type === 'chiuse') sounds.play('chiuse'); // solo rullo e piatto
       else if (p.type === 'sugarfree' && !p.scelta) sounds.play('rulloPremio', { loopFrom: 0 }); // rullo finché gli Sugarfree non scelgono
       else if (p.type === 'premio' && !p.apertoAt) sounds.play('rulloPremio', { loopFrom: 0 }); // rullo continuo finché la busta non si apre
-      else if (p.type === 'verdetto') {
-        // rullo fino al 1°, un colpo per ogni posizione prima, fanfara sul vincitore (stessi tempi della grafica)
-        const n = new Set((p.standings?.coppie || []).map((t) => t.posizione)).size || 1;
-        const steps = VERDICT_STEPS.slice(Math.max(0, VERDICT_STEPS.length - n)).map((ms) => ms / 1000);
-        const lastAt = steps[steps.length - 1];
-        sounds.play('rullo', { stopAt: lastAt });
-        steps.slice(0, -1).forEach((s) => sounds.play('colpo', { at: s, gain: 1.6 })); // 3° e 2°: colpo ben udibile sopra il rullo
-        sounds.play('fanfara', { at: lastAt }); // tromba quando compare il 1°
-        sounds.play('applauso', { at: lastAt + 0.4 });
+      else if (p.type === 'verdetto' && !verdettoFinito(p)) sounds.play(verdettoSotto(), { loopFrom: 0 }); // sotto il verdetto, finché non compare il 1°
+    }
+    // verdetto: la regia svela le posizioni una alla volta; colpo sul 3° e sul 2°, tromba e applausi sul 1°
+    const verdettoPos = (p) => new Set((p.standings?.coppie || []).map((t) => t.posizione)).size || 1;
+    const verdettoFinito = (p) => (p.rivelati || []).length >= verdettoPos(p);
+    const verdettoSotto = () => (env.config?.show?.suoni?.verdettoSotto ? 'verdettoSotto' : 'rulloPremio'); // musica scelta, altrimenti il rullo
+    let verdSeen = { key: '' };
+    function watchVerdetto(p, init) {
+      const n = (p.rivelati || []).length;
+      if (!init && verdSeen.key === sceneKey && n > verdSeen.n) {
+        const late = Math.max(0, (env.now() - p.rivelati[n - 1]) / 1000);
+        if (n >= verdettoPos(p)) { sounds.stop(verdettoSotto()); sounds.play('fanfara', { offset: Math.min(late, 1) }); sounds.play('applauso', { at: Math.max(0, 0.4 - late) }); }
+        else sounds.play('colpo', { gain: 1.6 });
       }
+      verdSeen = { key: sceneKey, n };
     }
     // voto Sugarfree: alla conferma in regia il gettone vola sulla squadra (whoosh), atterra (colpo + punti), applausi
     let sfSeen = { key: '' };

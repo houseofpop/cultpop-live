@@ -159,6 +159,7 @@ function buildStatic() {
       else if (d.qsos) cmd('quizSos', { teamId: d.qsos }, `SOS per ${teamName(d.qsos)}? Il timer si ferma e il pubblico vota dal telefono.`);
       else if (d.act === 'qNext') cmd('quizNext');
       else if (d.act === 'premioApri') cmd('premioApri');
+      else if (d.act === 'verdettoAvanti') cmd('verdettoAvanti');
       else if (d.act === 'ledFinale') cmd('ledFinale');
       else if (d.act === 'qClose') cmd('quizClose');
       else if (d.act === 'qToLed') cmd('quizToLed');
@@ -414,7 +415,7 @@ function renderScores() {
 }
 
 let lastPrev = '', lastProg = '', ledTimer = null;
-function sceneSig(sc) { return sc ? JSON.stringify([sc.type, sc.t, sc.publishedAt, sc.runId, sc.apertoAt, sc.sos && [sc.sos.closed, sc.sos.voters, sc.sos.corretta], sc.quiz && { ...sc.quiz, timer: sc.quiz.timer && { ...sc.quiz.timer, left: undefined, ended: undefined } }]) : ''; }
+function sceneSig(sc) { return sc ? JSON.stringify([sc.type, sc.t, sc.publishedAt, sc.runId, sc.apertoAt, sc.rivelati, sc.scelta, sc.sos && [sc.sos.closed, sc.sos.voters, sc.sos.corretta], sc.quiz && { ...sc.quiz, timer: sc.quiz.timer && { ...sc.quiz.timer, left: undefined, ended: undefined } }]) : ''; }
 function renderLed() {
   const { preview, program } = A.led;
   const hasSos = !!(A.sos);
@@ -429,17 +430,27 @@ function renderLed() {
     ['premio', '🎁 Premiazione'],
   ];
   morph($('sceneBtns'), scenes.map(([k, label]) => {
-    const dis = (k === 'sos' && !hasSos) || (k === 'verdetto' && !A.sugarfreeLocked) || (k === 'premio' && !A.verdictPublished);
+    const dis = (k === 'sos' && !hasSos) || (k === 'verdetto' && !A.sugarfreeLocked) || (k === 'premio' && !A.verdictDone);
     const cls = [preview?.type === k ? 'is-preview' : '', program?.type === k ? 'is-program' : ''].join(' ');
-    return `<button data-scene="${k}" class="${cls}" ${dis ? 'disabled' : ''} title="${k === 'verdetto' && !A.sugarfreeLocked ? 'Prima conferma il voto Sugarfree' : k === 'premio' && !A.verdictPublished ? 'Prima pubblica il verdetto' : 'Prepara in anteprima'}">${label}</button>`;
+    return `<button data-scene="${k}" class="${cls}" ${dis ? 'disabled' : ''} title="${k === 'verdetto' && !A.sugarfreeLocked ? 'Prima conferma il voto Sugarfree' : k === 'premio' && !A.verdictDone ? 'Prima pubblica il verdetto e svela tutte le posizioni' : 'Prepara in anteprima'}">${label}</button>`;
   }).join(''));
+  // verdetto: un pulsante per svelare la prossima posizione (3°, 2°, poi il 1°)
+  const vPos = program?.type === 'verdetto' ? [...new Set((program.standings?.coppie || []).map((t) => t.posizione))].sort((a, b) => b - a) : [];
+  const vNext = vPos[(program?.rivelati || []).length];
+  const vb = $('verdettoBtn');
+  vb.hidden = vNext == null;
+  if (vNext != null) {
+    const ultimo = (program.rivelati || []).length === vPos.length - 1;
+    vb.classList.toggle('primo', ultimo);
+    vb.textContent = ultimo ? `🥇 SVELA IL VINCITORE (${vNext}° posto)` : `${vNext === 2 ? '🥈' : '🥉'} SVELA IL ${vNext}° POSTO`;
+  }
   $('premioBtn').hidden = !(program?.type === 'premio' && !program.apertoAt);
   $('ledFinaleBtn').hidden = !(program?.type === 'premio' && program.apertoAt);
   const pubBtn = $('publishBtn');
-  const same = preview && program && sceneSig({ ...preview, publishedAt: undefined }) === sceneSig({ ...program, publishedAt: undefined });
+  const same = preview && program && sceneSig({ ...preview, publishedAt: undefined, rivelati: undefined, apertoAt: undefined }) === sceneSig({ ...program, publishedAt: undefined, rivelati: undefined, apertoAt: undefined });
   pubBtn.disabled = !preview || same;
   pubBtn.classList.toggle('danger-hold', preview?.type === 'verdetto');
-  pubBtn.querySelector('.hold-label').textContent = !preview ? 'Prepara prima una scena' : same ? 'Già sulla pagina LED ✓' : preview.type === 'verdetto' ? 'PUBBLICA IL VERDETTO (tieni premuto 2 secondi)' : `PUBBLICA SUL LED ▶ ${SCENE_LABEL[preview.type]}`;
+  pubBtn.querySelector('.hold-label').textContent = !preview ? 'Prepara prima una scena' : same ? 'Già sulla pagina LED ✓' : preview.type === 'verdetto' ? 'PUBBLICA IL VERDETTO, carte coperte (tieni premuto 2 secondi)' : `PUBBLICA SUL LED ▶ ${SCENE_LABEL[preview.type]}`;
   $('previewInfo').textContent = preview ? `${SCENE_LABEL[preview.type]}, preparata alle ${hhmm(preview.t)}${preview.type === 'classifica' || preview.type === 'generazioni' || preview.type === 'verdetto' ? ' (dati fotografati in quel momento: ripremi per aggiornarli)' : ''}` : 'Nessuna anteprima.';
   if (preview?.type === 'verdetto') {
     const vt = tiesIn(preview.standings?.coppie || []);

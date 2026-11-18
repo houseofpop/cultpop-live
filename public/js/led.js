@@ -979,7 +979,6 @@ function wrapLines(ctx, text, maxW) {
 // ---------- VERDETTO: rivelazione dal 3° al 1° posto ----------
 /** Lavagnette girate: i bollini delle squadre compaiono uno alla volta (ms tra uno e l'altro). */
 export const QUIZ_TEAM_STEP = 450;
-export const VERDICT_STEPS = [4000, 9000, 11500]; // dal 2° al 1° poco: a quel punto il vincitore si è già capito // ms: quando compaiono 3°, 2°, 1° (lento: rullo lungo, tromba sul 1°)
 function verdetto(g, scene) {
   const { ctx, W, H, u, env, t } = g;
   const y0 = title(g, 'IL VERDETTO', 36 * u, { size: 90, color: C.viola });
@@ -987,10 +986,10 @@ function verdetto(g, scene) {
   const teams = scene.standings?.coppie || [];
   const conts = Object.fromEntries((env.config?.concorrenti || []).map((c) => [c.id, c]));
   const positions = [...new Set(teams.map((x) => x.posizione))].sort((a, b) => b - a); // peggiore → migliore
-  const revealAt = (pos) => {
-    const k = positions.indexOf(pos);
-    return VERDICT_STEPS[Math.min(VERDICT_STEPS.length - 1, VERDICT_STEPS.length - positions.length + k)] ?? 0;
-  };
+  // le posizioni si svelano quando lo decide la regia (scene.rivelati = istanti dei clic, dal peggiore al migliore)
+  const now = env.now ? env.now() : Date.now(), riv = scene.rivelati || [];
+  const sinceReveal = (pos) => { const at = riv[positions.indexOf(pos)]; return at ? now - at : null; };
+  const nextPos = positions[riv.length]; // la prossima carta da girare trema un po'
   const wide = W / H > 1.3;
   // podio: 2° a sinistra, 1° al centro (più alto), 3° a destra
   const order = [...teams].sort((a, b) => a.posizione - b.posizione);
@@ -1009,11 +1008,14 @@ function verdetto(g, scene) {
       const gap = 24 * u, ch = (bottom - top - gap * (n - 1)) / n;
       x = 50 * u; y = top + slot * (ch + gap); w = W - 100 * u; h = ch;
     }
-    const ra = revealAt(tm.posizione);
-    const k = g.el === Infinity ? 1 : ease((t - ra) / 700);
+    const since = sinceReveal(tm.posizione);
+    const k = g.el === Infinity ? 1 : since == null ? 0 : ease(since / 700);
     if (k <= 0) {
-      // carta coperta
-      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate([-0.012, 0.008, -0.006][slot % 3]);
+      // carta coperta (quella che sta per essere girata vibra e si illumina)
+      const next = tm.posizione === nextPos && g.el !== Infinity;
+      const shake = next ? Math.sin(t / 45) * 0.006 * (0.5 + 0.5 * Math.sin(t / 700)) : 0;
+      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate([-0.012, 0.008, -0.006][slot % 3] + shake);
+      if (next) { ctx.shadowColor = 'rgba(251,207,44,.9)'; ctx.shadowBlur = (24 + Math.sin(t / 300) * 14) * u; }
       ctx.fillStyle = C.inchiostro; ctx.fillRect(-w / 2 + 10 * u, -h / 2 + 10 * u, w, h);
       ctx.fillStyle = C.viola; ctx.fillRect(-w / 2, -h / 2, w, h);
       ctx.lineWidth = 5 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(-w / 2, -h / 2, w, h);
@@ -1029,8 +1031,8 @@ function verdetto(g, scene) {
     ctx.restore();
   });
   const winners = order.filter((x) => x.posizione === 1);
-  const last = VERDICT_STEPS[VERDICT_STEPS.length - 1];
-  const kw = g.el === Infinity ? 1 : ease((t - last - 500) / 600);
+  const sinceLast = riv.length >= positions.length ? now - riv[positions.length - 1] : null;
+  const kw = g.el === Infinity ? 1 : sinceLast == null ? 0 : ease((sinceLast - 500) / 600);
   if (kw > 0 && winners.length) {
     const txt = winners.length > 1 ? 'EX AEQUO! VINCONO ' + winners.map((w) => w.nome.toUpperCase()).join(' E ') : `VINCE LA ${winners[0].nome.toUpperCase()}!`;
     ctx.save(); ctx.globalAlpha = kw;
@@ -1040,7 +1042,7 @@ function verdetto(g, scene) {
     ctx.fillStyle = C.inchiostro; ctx.textAlign = 'center';
     ctx.fillText(txt, W / 2, H - 50 * u, W - 200 * u);
     ctx.restore();
-    if (g.el !== Infinity) confetti(ctx, W, H, u, t - last - 300);
+    if (g.el !== Infinity) confetti(ctx, W, H, u, sinceLast - 300);
   }
 }
 

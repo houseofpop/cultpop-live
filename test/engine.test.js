@@ -112,7 +112,7 @@ test('punteggio completo: quiz per domanda, pubblico, Sugarfree, correzioni', ()
 });
 
 test('Sugarfree: un solo bonus, bloccabile, verdetto solo con voto confermato', () => {
-  const { e } = make();
+  const { e, clock } = make();
   assert.throws(() => e.ledPrepare('verdetto'), /Sugarfree/);
   e.setSugarfree('t1');
   e.setSugarfree('t2'); // sostituisce, non somma
@@ -127,6 +127,14 @@ test('Sugarfree: un solo bonus, bloccabile, verdetto solo con voto confermato', 
   assert.equal(e.screenState().program.type, 'promo'); // il LED non è cambiato
   e.ledPublish();
   assert.equal(e.screenState().program.type, 'verdetto');
+  assert.deepEqual(e.screenState().program.rivelati, []); // le posizioni si svelano a mano dalla regia
+  assert.equal(e.publicState().classifica, undefined); // finché non è svelato tutto, i telefoni non lo vedono
+  const n = new Set(e.s.verdict.coppie.map((t) => t.posizione)).size;
+  e.verdettoAvanti();
+  assert.throws(() => e.verdettoAvanti(), /attimo/); // doppio clic: non salta una posizione
+  for (let i = 1; i < n; i++) { clock.advance(2000); e.verdettoAvanti(); }
+  assert.equal(e.screenState().program.rivelati.length, n);
+  clock.advance(2000); assert.throws(() => e.verdettoAvanti(), /già tutto/);
   assert.equal(e.publicState().classifica[0].id, 't2');
 });
 
@@ -488,6 +496,8 @@ test('Premiazione: solo dopo il verdetto, la busta si apre una volta sola e solo
   assert.throws(() => e.ledPrepare('premio'), /verdetto/);
   e.setSugarfree('t2'); e.setSugarfreeLocked(true); e.goFinale();
   e.ledPrepare('verdetto'); e.ledPublish();
+  assert.throws(() => e.ledPrepare('premio'), /svela/); // prima vanno svelate tutte le posizioni
+  for (const _ of new Set(e.s.verdict.coppie.map((t) => t.posizione))) { clock.advance(2000); e.verdettoAvanti(); }
   e.ledPrepare('premio');
   assert.throws(() => e.premioApri(), /Premiazione/); // solo in anteprima: non si apre
   e.ledPublish();
