@@ -420,15 +420,15 @@ function sceneSig(sc) { return sc ? JSON.stringify([sc.type, sc.t, sc.publishedA
 function renderLed() {
   const { preview, program } = A.led;
   const hasSos = !!(A.sos);
-  const scenes = [
-    ['promo', '📣 Promemoria QR'],
-    ['classifica', '🏆 Classifica provvisoria'],
-    ['generazioni', '👶 Generazioni in sala'],
-    ['chiuse', '🔒 Votazioni chiuse'],
-    ['sugarfree', '🍬 Voto Sugarfree'],
-    ['fine', '🎬 Grazie e seguici'],
-    ['verdetto', '👑 Verdetto finale'],
-    ['premio', '🎁 Premiazione'],
+  const scenes = [ // in ordine di scaletta (si leggono da sinistra a destra, riga per riga)
+    ['promo', '1 · 📣 Promemoria QR'],
+    ['generazioni', '2 · 👶 Generazioni in sala'],
+    ['classifica', '3 · 🏆 Classifica provvisoria'],
+    ['chiuse', '4 · 🔒 Votazioni chiuse'],
+    ['sugarfree', '5 · 🍬 Voto Sugarfree'],
+    ['verdetto', '6 · 👑 Verdetto finale'],
+    ['premio', '7 · 🎁 Premiazione'],
+    ['fine', '8 · 🎬 Grazie e seguici'],
   ];
   morph($('sceneBtns'), scenes.map(([k, label]) => {
     const dis = (k === 'sos' && !hasSos) || (k === 'verdetto' && !A.sugarfreeLocked) || (k === 'premio' && !A.verdictDone);
