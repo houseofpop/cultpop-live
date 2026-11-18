@@ -605,10 +605,14 @@ function premio(g, scene) {
   vg.addColorStop(0, 'rgba(40,26,8,.30)'); vg.addColorStop(0.45, 'rgba(20,13,22,.72)'); vg.addColorStop(1, 'rgba(10,7,14,.92)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   logo(g, 40 * u, 26 * u, 140 * u);
-  const y0 = title(g, (P.titolo || 'LA PREMIAZIONE').toUpperCase(), 30 * u, { size: 76, color: C.viola });
+  // titolo: «LA SQUADRA FUCSIA VINCE...» (senza ripetere «squadra» se il nome lo contiene già)
   const vinc = scene.vincitori || [];
-  const team = vinc.length ? (vinc.length > 1 ? 'VINCONO ' + vinc.map((v) => v.nome.toUpperCase()).join(' E ') : 'VINCE LA ' + vinc[0].nome.toUpperCase()) : '';
-  const tagS = 50, tagY = H - tagS * 1.55 * u - 24 * u;
+  const nome = (v) => v.nome.replace(/^squadra\s+/i, '').toUpperCase();
+  const head = vinc.length > 1 ? `LE SQUADRE ${vinc.map(nome).join(' E ')} VINCONO...` : vinc.length ? `LA SQUADRA ${nome(vinc[0])} VINCE...` : (P.titolo || 'LA PREMIAZIONE').toUpperCase();
+  ctx.font = `900 ${76 * u}px ${F}`;
+  const maxT = W - 420 * u, tSize = Math.max(44, Math.min(76, 76 * maxT / ctx.measureText(head).width)); // nomi lunghi: carattere più piccolo, non schiacciato
+  const y0 = title(g, head, 30 * u + (76 - tSize) * 0.6 * u, { size: tSize, color: C.viola, maxW: maxT });
+  const tagY = H - 46 * u; // limite in basso (niente più scritta sotto)
   // misure e movimento: la busta sale dal basso e si posa, poi respira appena finché non si apre
   const ew = Math.min(W * 0.34, 660 * u), eh = ew * 0.62;
   const still = 1 - e(0, T.gira);
@@ -631,7 +635,7 @@ function premio(g, scene) {
   const inW = ew * 0.88, inH = inW / 1.415;
   const rise = e(T.lembo - 100, T.esce), mv = e(T.esce, T.centro);
   const inY = ey + eh * 0.1 - rise * inH * 0.62;
-  const fy = y0 + 18 * u + (tagY - y0 - 36 * u - finalH) / 2;
+  const fy = y0 + 30 * u + (tagY - y0 - 50 * u - finalH) / 2;
   const cw = inW + (finalW - inW) * mv, chh = cw / 1.415;
   const float = o != null && o > T.centro ? Math.sin((o - T.centro) / 700) * 6 * u : 0;
   const drawCard = () => {
@@ -747,7 +751,6 @@ function premio(g, scene) {
     }
   }
   if (o != null && o > T.centro - 200 && live) confetti(ctx, W, H, u, o - T.centro + 200);
-  if (team) tag(g, team, W / 2, tagY, { bg: vinc[0]?.colore || C.lime, size: tagS });
 }
 
 // ---------- FINE: grazie e seguici (con la canzone sotto) ----------
