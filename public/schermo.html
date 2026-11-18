@@ -21,7 +21,7 @@
   <script type="module">
     // Pagina per il LED wall: il tecnico la carica come sorgente web (o la mostra a tutto schermo da un portatile).
     // Mostra SOLO ciò che la regia ha pubblicato. Se la connessione cade, resta l'ultima immagine (nessun avviso visibile in onda).
-    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS, CLASSIFICA_STEPS, GENERAZIONI_STEPS, SOS_BARRE, QUIZ_TEAM_STEP } from '/js/led.js';
+    import { drawScene, prepareAssets, downloadPng, VERDICT_STEPS, CLASSIFICA_STEPS, GENERAZIONI_STEPS, SOS_BARRE, QUIZ_TEAM_STEP, SF_TEMPI } from '/js/led.js';
     import { createSounds } from '/js/suoni.js';
     const q = new URLSearchParams(location.search);
     const size = { width: Number(q.get('w')) || 1920, height: Number(q.get('h')) || 1080 };
@@ -60,6 +60,7 @@
       if (p.type === 'sos' && p.sos) watchSos(p, !primed || sosSeen.key !== key);
       if (p.type === 'quiz' && p.quiz) watchQuiz(p, !primed || quizSeen.key !== key, primed && quizSeen.key !== key);
       if (p.type === 'premio') watchPremio(p, !primed || premioSeen.key !== key);
+      if (p.type === 'sugarfree') watchSugarfree(p, !primed || sfSeen.key !== key);
       primed = true;
     });
     socket.on('connect', () => { connected = true; help(); });
@@ -88,6 +89,7 @@
         for (let i = 0; i < n; i++) sounds.play('pop', { at: GENERAZIONI_STEPS(i) / 1000 });
       }
       else if (p.type === 'chiuse') sounds.play('chiuse'); // solo rullo e piatto
+      else if (p.type === 'sugarfree' && !p.scelta) sounds.play('rulloPremio', { loopFrom: 0 }); // rullo finché gli Sugarfree non scelgono
       else if (p.type === 'premio' && !p.apertoAt) sounds.play('rulloPremio', { loopFrom: 0 }); // rullo continuo finché la busta non si apre
       else if (p.type === 'verdetto') {
         // rullo fino al 1°, un colpo per ogni posizione prima, fanfara sul vincitore (stessi tempi della grafica)
@@ -99,6 +101,21 @@
         sounds.play('fanfara', { at: lastAt }); // tromba quando compare il 1°
         sounds.play('applauso', { at: lastAt + 0.4 });
       }
+    }
+    // voto Sugarfree: alla conferma in regia il gettone vola sulla squadra (whoosh), atterra (colpo + punti), applausi
+    let sfSeen = { key: '' };
+    function watchSugarfree(p, init) {
+      if (!init && sfSeen.key === sceneKey) {
+        if (!sfSeen.scelta && p.scelta) {
+          const late = Math.max(0, (env.now() - p.sceltaAt) / 1000), at = (s) => Math.max(0, s - late);
+          sounds.stop('rulloPremio');
+          sounds.play('whoosh', { at: at(SF_TEMPI.gonfia / 1000) });
+          sounds.play('colpo', { at: at(SF_TEMPI.atterra / 1000), gain: 1.4 });
+          sounds.play('squadra', { at: at(SF_TEMPI.atterra / 1000) });
+          sounds.play('applauso', { at: at(SF_TEMPI.atterra / 1000 + 0.25) });
+        } else if (sfSeen.scelta && !p.scelta) { sounds.stopAll(); sounds.play('rulloPremio', { loopFrom: 0 }); } // voto sbloccato: si torna all'attesa
+      }
+      sfSeen = { key: sceneKey, scelta: p.scelta || null };
     }
     // premiazione: quando la regia apre la busta si ferma il rullo, fanfara, applausi e i popcorn che scoppiettano
     let premioSeen = { key: '' };
@@ -182,7 +199,7 @@
     function frame(now) {
       requestAnimationFrame(frame);
       // 60 fotogrammi al secondo durante verdetto e votazioni chiuse (coriandoli e animazioni), 30 altrimenti
-      if (now - last < (scene?.type === 'verdetto' || scene?.type === 'chiuse' || scene?.type === 'premio' ? 15 : 33)) return;
+      if (now - last < (scene?.type === 'verdetto' || scene?.type === 'chiuse' || scene?.type === 'premio' || scene?.type === 'sugarfree' ? 15 : 33)) return;
       last = now;
       if (!env.config) return;
       drawScene(cv, scene, env, { ...size, el: now - sceneStart, transparent });

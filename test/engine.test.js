@@ -508,3 +508,18 @@ test('Premiazione: solo dopo il verdetto, la busta si apre una volta sola e solo
   e.ledPrepare('premio'); e.ledPublish(); // ripubblicata (es. in prova): busta di nuovo chiusa
   assert.equal(e.screenState().program.apertoAt, undefined);
 });
+
+test('Scena Sugarfree: squadre in attesa, la scelta compare solo alla conferma del voto', () => {
+  const { e, clock } = make();
+  e.ledPrepare('sugarfree'); e.ledPublish();
+  let p = e.screenState().program;
+  assert.equal(p.type, 'sugarfree'); assert.equal(p.punti, 25); assert.equal(p.squadre.length, 3);
+  assert.equal(p.squadre[0].membri.length, 2); assert.equal(p.scelta, null);
+  e.setSugarfree('t3');
+  assert.equal(e.screenState().program.scelta, null); // scelta ma non confermata: sul LED non si vede
+  clock.advance(1000); e.setSugarfreeLocked(true);
+  p = e.screenState().program;
+  assert.equal(p.scelta, 't3'); assert.equal(p.sceltaAt, clock.now());
+  e.setSugarfreeLocked(false);
+  assert.equal(e.screenState().program.scelta, null); // sbloccato: il LED torna in attesa
+});

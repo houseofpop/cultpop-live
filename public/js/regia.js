@@ -172,7 +172,7 @@ function buildStatic() {
       else if (d.act === 'sosClose') cmd('sosClose', {}, 'Chiudere subito il voto SOS?');
       else if (d.act === 'sosReveal') cmd('sosReveal');
       else if (d.act === 'sosToLed') { cmd('ledPrepare', { type: 'sos' }); }
-      else if (d.act === 'sfLock') cmd('sugarfreeLock', { locked: true }, `Confermare il voto Sugarfree per ${teamName(A.sugarfree)}? Dopo non si potrà cambiare senza sbloccarlo.`);
+      else if (d.act === 'sfLock') cmd('sugarfreeLock', { locked: true }, `Confermare il voto Sugarfree per ${teamName(A.sugarfree)}?${A.led.program?.type === 'sugarfree' ? ' Sul LED i +' + (cfg.punteggi?.sugarfree?.bonus ?? 25) + ' volano subito su questa squadra.' : ''} Dopo non si potrà cambiare senza sbloccarlo.`);
       else if (d.act === 'sfUnlock') cmd('sugarfreeLock', { locked: false }, 'Sbloccare il voto Sugarfree?');
     });
   }
@@ -406,6 +406,7 @@ function renderScores() {
     <div class="sf-row">${cfg.coppie.map((t) => `<button class="sf-btn ${A.sugarfree === t.id ? 'on' : ''}" style="--team:${esc(t.colore)}" data-sf="${esc(t.id)}" ${locked ? 'disabled' : ''} aria-pressed="${A.sugarfree === t.id}"><i></i>${A.sugarfree === t.id ? '★ ' : ''}${esc(t.nome)}</button>`).join('')}</div>
     ${A.sugarfree && !locked ? '<button class="sf-clear" data-sf="">Annulla scelta</button>' : ''}
     <p class="sf-state ${locked ? 'ok' : ''}">${!A.sugarfree ? 'Seleziona la squadra scelta dagli Sugarfree.' : locked ? `✔ Confermato: ${esc(teamName(A.sugarfree))}. Ora puoi preparare il verdetto nella zona LED.` : `Scelta: ${esc(teamName(A.sugarfree))} (non ancora confermata)`}</p>
+    ${A.led.program?.type === 'sugarfree' && !locked ? '<p class="muted">🖥 Sul LED c\'è la scena Sugarfree: quando confermi, i punti volano sulla squadra scelta. Conferma quando la band la annuncia.</p>' : ''}
     ${A.sugarfree && !locked ? '<button class="tbtn confirm" data-act="sfLock">✔ Conferma voto Sugarfree</button>' : ''}
     ${locked ? `<button class="tbtn" data-act="sfUnlock" ${A.verdictPublished ? 'disabled' : ''}>Sblocca</button>` : ''}`);
 
@@ -422,6 +423,7 @@ function renderLed() {
     ['classifica', '🏆 Classifica provvisoria'],
     ['generazioni', '👶 Generazioni in sala'],
     ['chiuse', '🔒 Votazioni chiuse'],
+    ['sugarfree', '🍬 Voto Sugarfree'],
     ['fine', '🎬 Grazie e seguici'],
     ['verdetto', '👑 Verdetto finale'],
     ['premio', '🎁 Premiazione'],

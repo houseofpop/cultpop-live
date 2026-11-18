@@ -107,6 +107,8 @@ if itc.get('logoPartner'): itc['logoPartner'] = IMG.get('/' + itc['logoPartner']
 if itc.get('fotoPersona'): itc['fotoPersona'] = IMG.get('/' + itc['fotoPersona'], itc['fotoPersona'])
 vcc = cfg['show'].get('votazioniChiuse', {})
 if vcc.get('immagineLed'): vcc['immagineLed'] = IMG.get('/' + vcc['immagineLed'], vcc['immagineLed'])
+sfc = cfg.get('show', {}).get('sugarfree', {})
+if sfc.get('immagine'): sfc['immagine'] = IMG.get('/' + sfc['immagine'], sfc['immagine'])
 pr = cfg.get('show', {}).get('premio', {})
 for k in ('immagine', 'retro'):
     if pr.get(k): pr[k] = IMG.get('/' + pr[k], pr[k])

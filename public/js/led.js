@@ -52,6 +52,7 @@ export function drawScene(cv, scene, env, { width = 1920, height = 1080, el = In
   else if (type === 'quiz') quiz(g, scene);
   else if (type === 'fine') fine(g);
   else if (type === 'premio') premio(g, scene);
+  else if (type === 'sugarfree') sugarfreeScene(g, scene);
   else if (type === 'verdetto') verdetto(g, scene);
   else if (type === 'chiuse') chiuse(g);
   return cv;
@@ -544,6 +545,106 @@ function quiz(g, scene) {
   });
 }
 
+// ---------- VOTO SUGARFREE: la foto della band, i +25 in attesa, poi volano sulla squadra scelta ----------
+/** Tempi dalla conferma del voto in regia (ms): il gettone si gonfia, vola, atterra sulla squadra. */
+export const SF_TEMPI = { gonfia: 180, atterra: 1100 };
+function sugarfreeScene(g, scene) {
+  const { ctx, W, H, u, t, env } = g;
+  const live = g.el !== Infinity;
+  const S = env.config?.show?.sugarfree || {};
+  const now = env.now ? env.now() : Date.now();
+  const o = scene.sceltaAt ? (live ? now - scene.sceltaAt : 1e9) : null;
+  const T = SF_TEMPI, e = (a, b) => (o == null ? 0 : ease((o - a) / (b - a)));
+  const squadre = scene.squadre || [], punti = scene.punti ?? 25;
+  const chosen = squadre.findIndex((q) => q.id === scene.scelta);
+  const landed = o != null && o >= T.atterra;
+  const k = (d) => (live ? ease((t - d) / 600) : 1);
+  logo(g, 40 * u, 26 * u, 140 * u);
+  const name = chosen >= 0 ? squadre[chosen].nome.replace(/^squadra\s+/i, '').toUpperCase() : '';
+  const head = landed ? `+${punti} ALLA SQUADRA ${name}!` : (S.titolo || 'LA PAROLA AGLI SUGARFREE');
+  ctx.font = `900 ${76 * u}px ${F}`;
+  const maxT = W - 420 * u, tS = Math.max(44, Math.min(76, 76 * maxT / ctx.measureText(head).width));
+  const y0 = title(g, head, 30 * u + (76 - tS) * 0.6 * u, { size: tS, color: landed ? (squadre[chosen]?.colore === C.lime ? C.viola : C.viola) : C.viola, maxW: maxT });
+  // ---- foto polaroid della band ----
+  const ph = img(srcOf(S.immagine || '/img/sugarfree/sugarfree.webp'));
+  const pw = Math.min(760 * u, W * 0.4), phh = pw * (ph ? ph.height / ph.width : 0.74), pad = 20 * u;
+  const pcx = 120 * u + pw / 2 + pad, pcy = y0 + (H - y0) / 2 - 10 * u;
+  const kp = k(0);
+  ctx.save(); ctx.globalAlpha = kp; ctx.translate(pcx, pcy + (1 - kp) * 60 * u); ctx.rotate(-0.035);
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(-pw / 2 - pad + 14 * u, -phh / 2 - pad + 14 * u, pw + pad * 2, phh + pad * 2 + 60 * u);
+  ctx.fillStyle = '#fff'; ctx.fillRect(-pw / 2 - pad, -phh / 2 - pad, pw + pad * 2, phh + pad * 2 + 60 * u);
+  if (ph) ctx.drawImage(ph, -pw / 2, -phh / 2, pw, phh);
+  ctx.lineWidth = 3 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(-pw / 2 - pad, -phh / 2 - pad, pw + pad * 2, phh + pad * 2 + 60 * u);
+  ctx.fillStyle = C.inchiostro; ctx.font = `900 ${40 * u}px ${F}`; ctx.textAlign = 'center';
+  ctx.fillText(S.nome || 'SUGARFREE', 0, phh / 2 + pad + 44 * u);
+  // nastro adesivo
+  ctx.fillStyle = 'rgba(251,207,44,.75)';
+  [[-pw / 2 + 30 * u, -0.5], [pw / 2 - 30 * u, 0.5]].forEach(([x, r]) => { ctx.save(); ctx.translate(x, -phh / 2 - pad); ctx.rotate(r); ctx.fillRect(-70 * u, -18 * u, 140 * u, 36 * u); ctx.restore(); });
+  ctx.restore();
+  // ---- le tre squadre ----
+  const cx0 = pcx + pw / 2 + pad + 130 * u, cw = W - cx0 - 110 * u, chh = Math.min(180 * u, (H - y0 - 120 * u) / 3 - 30 * u), gap = 34 * u;
+  const top = y0 + (H - y0 - (chh * 3 + gap * 2)) / 2;
+  const slotR = chh * 0.36;
+  const slot = (i) => ({ x: cx0 + cw - slotR - 34 * u, y: top + i * (chh + gap) + chh / 2 });
+  const hit = e(T.atterra, T.atterra + 380), bounce = landed ? Math.sin(Math.min(1, (o - T.atterra) / 420) * Math.PI) * 0.06 : 0;
+  squadre.forEach((q, i) => {
+    const y = top + i * (chh + gap), kc = k(250 + i * 180), mine = i === chosen && landed;
+    const dim = landed && i !== chosen ? 0.4 : 1;
+    ctx.save(); ctx.globalAlpha = kc * dim;
+    ctx.translate(cx0 + cw / 2 + (1 - kc) * 80 * u, y + chh / 2); ctx.scale(1 + (mine ? bounce : 0), 1 + (mine ? bounce : 0)); ctx.translate(-(cx0 + cw / 2), -(y + chh / 2));
+    ctx.fillStyle = C.inchiostro; ctx.fillRect(cx0 + 12 * u, y + 12 * u, cw, chh);
+    ctx.fillStyle = mine ? q.colore : '#fff'; ctx.fillRect(cx0, y, cw, chh);
+    if (!mine) { ctx.fillStyle = q.colore; ctx.fillRect(cx0, y, 26 * u, chh); }
+    ctx.lineWidth = 3 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(cx0, y, cw, chh);
+    // attesa: una luce passa sulle card, una alla volta
+    if (o == null && live) {
+      const ph2 = ((t / 2400) * 3 - i + 30) % 3;
+      if (ph2 < 1) { ctx.save(); ctx.beginPath(); ctx.rect(cx0, y, cw, chh); ctx.clip(); const xs = cx0 - 200 * u + ph2 * (cw + 400 * u), gr = ctx.createLinearGradient(xs - 120 * u, 0, xs + 120 * u, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(251,207,44,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = gr; ctx.fillRect(cx0, y, cw, chh); ctx.restore(); }
+    }
+    ctx.textAlign = 'left'; ctx.fillStyle = C.inchiostro;
+    ctx.font = `900 ${chh * 0.3}px ${F}`; ctx.fillText(q.nome.toUpperCase(), cx0 + 60 * u, y + chh * 0.47, cw - slotR * 2 - 130 * u);
+    ctx.font = `800 ${chh * 0.19}px ${F}`; ctx.fillText((q.membri || []).join(' & '), cx0 + 60 * u, y + chh * 0.76, cw - slotR * 2 - 130 * u);
+    // casella dei punti: «?» in attesa
+    const sl = slot(i);
+    if (!mine) {
+      ctx.setLineDash([10 * u, 8 * u]); ctx.lineWidth = 4 * u; ctx.strokeStyle = 'rgba(23,18,31,.45)';
+      ctx.beginPath(); ctx.arc(sl.x, sl.y, slotR, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(23,18,31,.45)'; ctx.font = `900 ${slotR}px ${F}`; ctx.textAlign = 'center'; ctx.fillText('?', sl.x, sl.y + slotR * 0.36);
+    }
+    ctx.restore();
+  });
+  // ---- il gettone +25 ----
+  const coin = (x, y, r, rot) => {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    ctx.fillStyle = C.inchiostro; ctx.beginPath(); ctx.arc(7 * u, 7 * u, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = foil(ctx, -r, -r, r, r, Math.sin(t / 900)); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 4 * u; ctx.strokeStyle = C.inchiostro; ctx.stroke();
+    ctx.lineWidth = 3 * u; ctx.strokeStyle = 'rgba(90,55,8,.6)'; ctx.beginPath(); ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = C.inchiostro; ctx.font = `900 ${r * 0.78}px ${F}`; ctx.textAlign = 'center'; ctx.fillText(`+${punti}`, 0, r * 0.27);
+    ctx.restore();
+  };
+  const homeR = 105 * u, hx = pcx + pw / 2 - 20 * u, hy = pcy + phh / 2 - 10 * u;
+  if (o == null || chosen < 0) {
+    const kk = k(900), wob = live ? Math.sin(t / 380) * 0.08 : 0, pul = live ? 1 + Math.sin(t / 520) * 0.04 : 1;
+    if (kk > 0) coin(hx, hy, homeR * pul * (0.5 + 0.5 * kk), wob);
+  } else {
+    const to = slot(chosen), endR = slotR * 1.05;
+    if (!landed) {
+      const g1 = e(0, T.gonfia), fl = e(T.gonfia, T.atterra);
+      const r = homeR * (1 + 0.25 * g1 * (1 - fl)) + (endR - homeR) * fl;
+      const mx = (hx + to.x) / 2, my = Math.min(hy, to.y) - 260 * u; // arco
+      const x = (1 - fl) * (1 - fl) * hx + 2 * (1 - fl) * fl * mx + fl * fl * to.x, y = (1 - fl) * (1 - fl) * hy + 2 * (1 - fl) * fl * my + fl * fl * to.y;
+      coin(x, y, r, fl * Math.PI * 2);
+    } else {
+      const ring = Math.min(1, (o - T.atterra) / 700); // onda d'urto
+      if (ring < 1 && live) { ctx.save(); ctx.globalAlpha = 1 - ring; ctx.lineWidth = 8 * u; ctx.strokeStyle = C.giallo; ctx.beginPath(); ctx.arc(to.x, to.y, endR * (1 + ring * 1.8), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      coin(to.x, to.y, endR * (1 + bounce * 2), 0);
+    }
+  }
+  if (landed && live) confetti(ctx, W, H, u, o - T.atterra);
+  ctx.textAlign = 'left';
+}
+
 // ---------- PREMIAZIONE: busta dorata che gira, poi (al comando della regia) si apre ed esce la gift card ----------
 /** Tempi dell'apertura (ms dal comando «Apri la busta»): la card arriva al centro in meno di 3 secondi. */
 export const PREMIO_TEMPI = { gira: 450, lembo: 850, esce: 1700, centro: 2700 };
@@ -982,7 +1083,7 @@ function confetti(ctx, W, H, u, t) {
   ctx.globalAlpha = 1;
 }
 
-export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale', premio: 'Premiazione', fine: 'Grazie e seguici' };
+export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', sugarfree: 'Voto Sugarfree', verdetto: 'Verdetto finale', premio: 'Premiazione', fine: 'Grazie e seguici' };
 
 // ---------- VOTAZIONI CHIUSE: attesa del verdetto ----------
 function chiuse(g) {
@@ -1044,7 +1145,8 @@ export async function prepareAssets(config, qr) {
   await fontsReady();
   const vc = config?.show?.votazioniChiuse;
   const pr = config?.show?.premio;
-  await preload(['/img/logo.webp', qr?.dataUrl, qr?.ig, pr?.immagine && srcOf(pr.immagine), vc?.immagineLed && srcOf(vc.immagineLed), ...(config?.concorrenti || []).map((c) => c.foto)]);
+  const sfImg = config?.show?.sugarfree?.immagine;
+  await preload(['/img/logo.webp', qr?.dataUrl, qr?.ig, pr?.immagine && srcOf(pr.immagine), sfImg && srcOf(sfImg), vc?.immagineLed && srcOf(vc.immagineLed), ...(config?.concorrenti || []).map((c) => c.foto)]);
 }
 
 export async function downloadPng(cv, name = 'cultpop-led.png') {

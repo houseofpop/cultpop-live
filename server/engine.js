@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
  */
 
 export const MODES = ['attesa', 'reazioni', 'sos', 'finale'];
-export const LED_SCENES = ['promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'verdetto', 'premio', 'fine'];
+export const LED_SCENES = ['promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'sugarfree', 'verdetto', 'premio', 'fine'];
 /** Passi di una domanda del quiz: 0 preparata, 1 domanda sul LED, 2..5 risposte A..D visibili (con la D parte il timer). */
 export const QUIZ_LAST_STEP = 5;
 const SOS_GRACE_MS = 600; // tolleranza di rete per i voti arrivati a ridosso dello scadere
@@ -453,6 +453,7 @@ export class ShowEngine {
   setSugarfreeLocked(locked) {
     if (locked && !this.s.sugarfree) throw new Error('Scegli prima la coppia degli Sugarfree');
     this.s.sugarfreeLocked = !!locked;
+    this.s.sugarfreeLockedAt = locked ? this.now() : null; // sul LED (scena «Sugarfree») parte l'animazione dei +25
     this.log(locked ? 'Voto Sugarfree CONFERMATO e bloccato' : 'Voto Sugarfree sbloccato');
     this.touch(false);
   }
@@ -693,6 +694,16 @@ export class ShowEngine {
   resolveScene(scene) {
     if (!scene) return null;
     if (scene.type === 'quiz') return this.resolveQuiz(scene);
+    if (scene.type === 'sugarfree') { // le squadre in attesa; alla conferma del voto in regia, la scelta e l'istante
+      const locked = this.s.sugarfreeLocked && this.s.sugarfree;
+      return {
+        ...scene,
+        punti: this.config.punteggi.sugarfree.bonus,
+        squadre: this.config.coppie.map((t) => ({ id: t.id, nome: t.nome, colore: t.colore, membri: this.config.concorrenti.filter((c) => c.coppia === t.id).map((c) => c.nome) })),
+        scelta: locked ? this.s.sugarfree : null,
+        sceltaAt: locked ? (this.s.sugarfreeLockedAt || scene.publishedAt || scene.t) : null,
+      };
+    }
     if (scene.type !== 'sos') return scene;
     const r = (this.s.sos?.runId === scene.runId ? this.s.sos : null) || this.s.sosHistory.find((h) => h.runId === scene.runId);
     if (!r) return { type: 'promo', t: scene.t };
