@@ -482,3 +482,24 @@ test('chiudere le votazioni porta i telefoni a «Votazioni chiuse» anche se era
   assert.equal(ps.mode, 'reazioni');
   assert.equal(ps.votesClosed, true);
 });
+
+test('Premiazione: solo dopo il verdetto, la busta si apre una volta sola e solo se la scena è sul LED', () => {
+  const { e, clock } = make();
+  assert.throws(() => e.ledPrepare('premio'), /verdetto/);
+  e.setSugarfree('t2'); e.setSugarfreeLocked(true); e.goFinale();
+  e.ledPrepare('verdetto'); e.ledPublish();
+  e.ledPrepare('premio');
+  assert.throws(() => e.premioApri(), /Premiazione/); // solo in anteprima: non si apre
+  e.ledPublish();
+  const p = e.screenState().program;
+  assert.equal(p.type, 'premio');
+  assert.equal(p.apertoAt, undefined);
+  assert.deepEqual(p.vincitori.map((v) => v.nome), e.s.verdict.coppie.filter((t) => t.posizione === 1).map((t) => t.nome));
+  assert.equal(p.vincitori[0].membri.length, 2);
+  clock.advance(5000);
+  e.premioApri();
+  assert.equal(e.screenState().program.apertoAt, clock.now());
+  assert.throws(() => e.premioApri(), /già aperta/);
+  e.ledPrepare('premio'); e.ledPublish(); // ripubblicata (es. in prova): busta di nuovo chiusa
+  assert.equal(e.screenState().program.apertoAt, undefined);
+});

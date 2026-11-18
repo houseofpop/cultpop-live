@@ -52,7 +52,8 @@
       "colpo": "audio/colpo.mp3",
       "fanfara": "audio/fanfara.mp3",
       "applauso": "audio/applauso.mp3",
-      "timerQuiz": "audio/timer-quiz.mp3"
+      "timerQuiz": "audio/timer-quiz.mp3",
+      "rulloPremio": "audio/rullo-premio.wav"
     },
     "intro": {
       "attiva": true,
@@ -64,7 +65,12 @@
       "nomePersona": "Sergio Cerruti",
       "scritta": "GRAZIE"
     },
-    "siglaLoopA": 140.65
+    "siglaLoopA": 140.65,
+    "premio": {
+      "titolo": "LA PREMIAZIONE",
+      "immagine": "img/premio/cinema-pass.webp",
+      "retro": "img/premio/cinema-pass-retro.webp"
+    }
   },
   "coppie": [
     {

@@ -158,6 +158,7 @@ function buildStatic() {
       else if (d.qa) cmd('quizAnswer', { teamId: d.qa, idx: d.i === '' ? null : Number(d.i) });
       else if (d.qsos) cmd('quizSos', { teamId: d.qsos }, `SOS per ${teamName(d.qsos)}? Il timer si ferma e il pubblico vota dal telefono.`);
       else if (d.act === 'qNext') cmd('quizNext');
+      else if (d.act === 'premioApri') cmd('premioApri');
       else if (d.act === 'qClose') cmd('quizClose');
       else if (d.act === 'qToLed') cmd('quizToLed');
       else if (d.act === 'qShowSos') cmd('quizShowSos');
@@ -411,7 +412,7 @@ function renderScores() {
 }
 
 let lastPrev = '', lastProg = '', ledTimer = null;
-function sceneSig(sc) { return sc ? JSON.stringify([sc.type, sc.t, sc.publishedAt, sc.runId, sc.sos && [sc.sos.closed, sc.sos.voters, sc.sos.corretta], sc.quiz && { ...sc.quiz, timer: sc.quiz.timer && { ...sc.quiz.timer, left: undefined, ended: undefined } }]) : ''; }
+function sceneSig(sc) { return sc ? JSON.stringify([sc.type, sc.t, sc.publishedAt, sc.runId, sc.apertoAt, sc.sos && [sc.sos.closed, sc.sos.voters, sc.sos.corretta], sc.quiz && { ...sc.quiz, timer: sc.quiz.timer && { ...sc.quiz.timer, left: undefined, ended: undefined } }]) : ''; }
 function renderLed() {
   const { preview, program } = A.led;
   const hasSos = !!(A.sos);
@@ -422,12 +423,14 @@ function renderLed() {
     ['chiuse', '🔒 Votazioni chiuse'],
     ['fine', '🎬 Grazie e seguici'],
     ['verdetto', '👑 Verdetto finale'],
+    ['premio', '🎁 Premiazione'],
   ];
   morph($('sceneBtns'), scenes.map(([k, label]) => {
-    const dis = (k === 'sos' && !hasSos) || (k === 'verdetto' && !A.sugarfreeLocked);
+    const dis = (k === 'sos' && !hasSos) || (k === 'verdetto' && !A.sugarfreeLocked) || (k === 'premio' && !A.verdictPublished);
     const cls = [preview?.type === k ? 'is-preview' : '', program?.type === k ? 'is-program' : ''].join(' ');
-    return `<button data-scene="${k}" class="${cls}" ${dis ? 'disabled' : ''} title="${k === 'verdetto' && !A.sugarfreeLocked ? 'Prima conferma il voto Sugarfree' : 'Prepara in anteprima'}">${label}</button>`;
+    return `<button data-scene="${k}" class="${cls}" ${dis ? 'disabled' : ''} title="${k === 'verdetto' && !A.sugarfreeLocked ? 'Prima conferma il voto Sugarfree' : k === 'premio' && !A.verdictPublished ? 'Prima pubblica il verdetto' : 'Prepara in anteprima'}">${label}</button>`;
   }).join(''));
+  $('premioBtn').hidden = !(program?.type === 'premio' && !program.apertoAt);
   const pubBtn = $('publishBtn');
   const same = preview && program && sceneSig({ ...preview, publishedAt: undefined }) === sceneSig({ ...program, publishedAt: undefined });
   pubBtn.disabled = !preview || same;

@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
  */
 
 export const MODES = ['attesa', 'reazioni', 'sos', 'finale'];
-export const LED_SCENES = ['promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'verdetto', 'fine'];
+export const LED_SCENES = ['promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'verdetto', 'premio', 'fine'];
 /** Passi di una domanda del quiz: 0 preparata, 1 domanda sul LED, 2..5 risposte A..D visibili (con la D parte il timer). */
 export const QUIZ_LAST_STEP = 5;
 const SOS_GRACE_MS = 600; // tolleranza di rete per i voti arrivati a ridosso dello scadere
@@ -490,6 +490,11 @@ export class ShowEngine {
       if (!r) throw new Error('Nessun SOS da mostrare');
       scene.runId = r.runId;
     }
+    if (type === 'premio') { // premiazione: busta dorata per la squadra vincitrice (dal verdetto pubblicato)
+      if (!this.s.verdictPublished || !this.s.verdict) throw new Error('Prima pubblica il verdetto: la premiazione svela la squadra vincitrice');
+      const st = this.s.verdict;
+      scene.vincitori = st.coppie.filter((t) => t.posizione === 1).map((t) => ({ nome: t.nome, colore: t.colore, membri: t.membri.map((id) => this.contById[id]?.nome).filter(Boolean) }));
+    }
     if (type === 'verdetto') {
       if (!this.s.sugarfree) throw new Error('Manca il voto degli Sugarfree');
       if (!this.s.sugarfreeLocked) throw new Error('Conferma (blocca) prima il voto degli Sugarfree');
@@ -509,6 +514,17 @@ export class ShowEngine {
     this.s.led.program = { ...p, publishedAt: this.now() };
     if (p.type === 'verdetto') { this.s.verdictPublished = true; this.s.verdict = p.standings; }
     this.log(`LED: PUBBLICATO (${p.type})`);
+    this.touch();
+  }
+
+  /** Premiazione: la busta sul LED si apre e ne esce la gift card (subito, in sincrono con il palco). */
+  premioApri() {
+    const p = this.s.led.program;
+    if (p?.type !== 'premio') throw new Error('Prima pubblica la scena «Premiazione» sul LED');
+    if (p.apertoAt) throw new Error('La busta è già aperta');
+    p.apertoAt = this.now();
+    if (this.s.led.preview?.type === 'premio') this.s.led.preview.apertoAt = p.apertoAt;
+    this.log('LED → Premiazione: busta aperta');
     this.touch();
   }
 

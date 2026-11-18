@@ -206,6 +206,7 @@ adminNs.on('connection', (socket) => {
     quizReset: (e, a) => e.quizReset(a.qid),
     quizClose: (e) => e.quizClose(),
     quizToLed: (e) => e.quizToLed(),
+    premioApri: (e) => e.premioApri(),
     sugarfree: (e, a) => e.setSugarfree(a.teamId ?? null),
     sugarfreeLock: (e, a) => e.setSugarfreeLocked(a.locked),
     adjAdd: (e, a) => e.addAdjustment(a.target, a.delta, a.reason),

@@ -107,6 +107,9 @@ if itc.get('logoPartner'): itc['logoPartner'] = IMG.get('/' + itc['logoPartner']
 if itc.get('fotoPersona'): itc['fotoPersona'] = IMG.get('/' + itc['fotoPersona'], itc['fotoPersona'])
 vcc = cfg['show'].get('votazioniChiuse', {})
 if vcc.get('immagineLed'): vcc['immagineLed'] = IMG.get('/' + vcc['immagineLed'], vcc['immagineLed'])
+pr = cfg.get('show', {}).get('premio', {})
+for k in ('immagine', 'retro'):
+    if pr.get(k): pr[k] = IMG.get('/' + pr[k], pr[k])
 for pr in cfg.get('profili', []):
     if pr.get('locandina'): pr['locandina'] = IMG.get('/' + pr['locandina'], pr['locandina'])
 for g in cfg.get('generazioni', []):

@@ -59,6 +59,7 @@
       scene = p;
       if (p.type === 'sos' && p.sos) watchSos(p, !primed || sosSeen.key !== key);
       if (p.type === 'quiz' && p.quiz) watchQuiz(p, !primed || quizSeen.key !== key, primed && quizSeen.key !== key);
+      if (p.type === 'premio') watchPremio(p, !primed || premioSeen.key !== key);
       primed = true;
     });
     socket.on('connect', () => { connected = true; help(); });
@@ -87,6 +88,7 @@
         for (let i = 0; i < n; i++) sounds.play('pop', { at: GENERAZIONI_STEPS(i) / 1000 });
       }
       else if (p.type === 'chiuse') sounds.play('chiuse'); // solo rullo e piatto
+      else if (p.type === 'premio' && !p.apertoAt) sounds.play('rulloPremio', { loopFrom: 0 }); // rullo continuo finché la busta non si apre
       else if (p.type === 'verdetto') {
         // rullo fino al 1°, un colpo per ogni posizione prima, fanfara sul vincitore (stessi tempi della grafica)
         const n = new Set((p.standings?.coppie || []).map((t) => t.posizione)).size || 1;
@@ -97,6 +99,19 @@
         sounds.play('fanfara', { at: lastAt }); // tromba quando compare il 1°
         sounds.play('applauso', { at: lastAt + 0.4 });
       }
+    }
+    // premiazione: quando la regia apre la busta si ferma il rullo, fanfara, applausi e i popcorn che scoppiettano
+    let premioSeen = { key: '' };
+    function watchPremio(p, init) {
+      if (!init && premioSeen.key === sceneKey && !premioSeen.aperto && p.apertoAt) {
+        const late = Math.max(0, (env.now() - p.apertoAt) / 1000); // la busta sul LED parte dall'istante del comando
+        sounds.stop('rulloPremio');
+        sounds.play('fanfara', { offset: Math.min(late, 1) });
+        sounds.play('applauso', { at: Math.max(0, 0.4 - late) });
+        const r = (i) => ((Math.sin(i * 91.7) + 1) / 2);
+        for (let i = 0; i < 12; i++) { const at = 0.75 + i * 0.2 + r(i) * 0.15 - late; if (at >= 0) sounds.play('pop', { at, gain: 0.5 + r(i + 5) * 0.4 }); }
+      }
+      premioSeen = { key: sceneKey, aperto: !!p.apertoAt };
     }
     const sosClosed = (s) => s.closed || env.now() >= s.endsAt;
     // percentuali: «barre» mentre si riempiono; a fine riempimento, se il pubblico è diviso, «pari» (insieme alla scritta PARITÀ)
@@ -167,7 +182,7 @@
     function frame(now) {
       requestAnimationFrame(frame);
       // 60 fotogrammi al secondo durante verdetto e votazioni chiuse (coriandoli e animazioni), 30 altrimenti
-      if (now - last < (scene?.type === 'verdetto' || scene?.type === 'chiuse' ? 15 : 33)) return;
+      if (now - last < (scene?.type === 'verdetto' || scene?.type === 'chiuse' || scene?.type === 'premio' ? 15 : 33)) return;
       last = now;
       if (!env.config) return;
       drawScene(cv, scene, env, { ...size, el: now - sceneStart, transparent });

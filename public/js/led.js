@@ -51,6 +51,7 @@ export function drawScene(cv, scene, env, { width = 1920, height = 1080, el = In
   else if (type === 'sos') sos(g, scene);
   else if (type === 'quiz') quiz(g, scene);
   else if (type === 'fine') fine(g);
+  else if (type === 'premio') premio(g, scene);
   else if (type === 'verdetto') verdetto(g, scene);
   else if (type === 'chiuse') chiuse(g);
   return cv;
@@ -543,6 +544,140 @@ function quiz(g, scene) {
   });
 }
 
+// ---------- PREMIAZIONE: busta dorata che gira, poi (al comando della regia) si apre ed esce la gift card ----------
+/** Tempi dell'apertura (ms dal comando «Apri la busta»): la card arriva al centro in meno di 3 secondi. */
+export const PREMIO_TEMPI = { gira: 450, lembo: 850, esce: 1700, centro: 2700 };
+function popcorn(ctx, x, y, r, rot, alpha = 1) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(rot);
+  const blobs = [[0, 0, 1], [-0.62, -0.25, 0.72], [0.6, -0.3, 0.7], [-0.25, -0.75, 0.66], [0.32, -0.72, 0.62], [0.05, 0.45, 0.6]];
+  ctx.fillStyle = 'rgba(23,18,31,.25)';
+  for (const [bx, by, br] of blobs) { ctx.beginPath(); ctx.arc(bx * r + r * 0.12, by * r + r * 0.12, br * r * 0.62, 0, Math.PI * 2); ctx.fill(); }
+  for (const [bx, by, br] of blobs) {
+    const gr = ctx.createRadialGradient(bx * r - br * r * 0.2, by * r - br * r * 0.25, 1, bx * r, by * r, br * r * 0.62);
+    gr.addColorStop(0, '#fffdf2'); gr.addColorStop(0.7, '#fbeec4'); gr.addColorStop(1, '#e8c77a');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(bx * r, by * r, br * r * 0.62, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#d99a2b'; ctx.beginPath(); ctx.arc(r * 0.1, r * 0.55, r * 0.18, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function goldGrad(ctx, x, y, w, h, shift = 0) {
+  const gr = ctx.createLinearGradient(x, y, x + w, y + h);
+  const k = (v) => Math.min(1, Math.max(0, v));
+  gr.addColorStop(0, '#8a5a12'); gr.addColorStop(k(0.28 + shift * 0.3), '#d9a63a'); gr.addColorStop(k(0.45 + shift * 0.3), '#fbe7a1');
+  gr.addColorStop(k(0.62 + shift * 0.3), '#c9902a'); gr.addColorStop(1, '#7a4c0e');
+  return gr;
+}
+function premio(g, scene) {
+  const { ctx, W, H, u, t, env } = g;
+  const P = env.config?.show?.premio || {};
+  const card = img(srcOf(P.immagine || '/img/premio/cinema-pass.webp'));
+  const now = env.now ? env.now() : Date.now();
+  const o = scene.apertoAt ? (g.el === Infinity ? 1e9 : now - scene.apertoAt) : null; // ms dall'apertura
+  const T = PREMIO_TEMPI, e = (a, b) => (o == null ? 0 : ease((o - a) / (b - a)));
+  // luce calda dal centro
+  const vg = ctx.createRadialGradient(W / 2, H * 0.55, 40 * u, W / 2, H * 0.55, Math.max(W, H) * 0.7);
+  vg.addColorStop(0, 'rgba(255,224,140,.35)'); vg.addColorStop(1, 'rgba(23,18,31,.45)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  logo(g, 40 * u, 26 * u, 140 * u);
+  const y0 = title(g, (P.titolo || 'LA PREMIAZIONE').toUpperCase(), 30 * u, { size: 76, color: C.viola });
+  const vinc = scene.vincitori || [];
+  const nomi = (v) => (v.membri?.length ? ' · ' + v.membri.join(' E ').toUpperCase() : '');
+  const team = vinc.length ? (vinc.length > 1 ? 'VINCONO ' + vinc.map((v) => v.nome.toUpperCase()).join(' E ') : 'VINCE LA ' + vinc[0].nome.toUpperCase() + nomi(vinc[0])) : '';
+  const tagS = 50, tagY = H - tagS * 1.55 * u - 24 * u;
+  // misure
+  const ew = Math.min(W * 0.34, 660 * u), eh = ew * 0.62;
+  const cx = W / 2, baseY = H * 0.6 + Math.sin(t / 900) * 8 * u * (1 - e(0, T.gira));
+  const drop = e(T.esce, T.centro) * (H * 0.55), fade = 1 - e(T.esce + 300, T.centro);
+  const ex = cx - ew / 2, ey = baseY - eh / 2 + drop;
+  // rotazione: gira lenta finché è chiusa; all'apertura si ferma di fronte
+  const spin = (ms) => (ms / 5200) * Math.PI * 2;
+  let sx = Math.cos(spin(t));
+  if (o != null) { const s0 = Math.cos(spin(t - Math.min(o, t))); sx = s0 + (1 - s0) * e(0, T.gira); }
+  const front = sx >= 0, w = Math.max(0.03, Math.abs(sx));
+  const fl = 1 - 2 * e(T.gira, T.lembo); // lembo: 1 chiuso, -1 aperto
+  // la card: dentro la busta, poi sale, poi va al centro e si ingrandisce
+  const finalW = Math.min(W * 0.62, (tagY - y0 - 50 * u) * 1.415), finalH = finalW / 1.415;
+  const inW = ew * 0.88, inH = inW / 1.415;
+  const rise = e(T.lembo - 100, T.esce), mv = e(T.esce, T.centro);
+  const inY = ey + eh * 0.12 - rise * inH * 0.62;
+  const fy = y0 + 18 * u + (tagY - y0 - 36 * u - finalH) / 2;
+  const cw = inW + (finalW - inW) * mv, chh = cw / 1.415;
+  const float = o != null && o > T.centro ? Math.sin((o - T.centro) / 700) * 6 * u : 0;
+  const drawCard = () => {
+    if (!card || o == null || rise <= 0) return;
+    const x = cx - cw / 2, y = (mv > 0 ? inY + (fy - inY) * mv : inY) + float;
+    ctx.save(); ctx.translate(cx, y + chh / 2); ctx.rotate((1 - mv) * -0.03); ctx.translate(-cx, -(y + chh / 2));
+    ctx.shadowColor = 'rgba(23,18,31,.45)'; ctx.shadowBlur = 30 * u; ctx.shadowOffsetY = 14 * u;
+    ctx.drawImage(card, x, y, cw, chh); ctx.shadowColor = 'transparent';
+    if (o > T.centro) { // riflesso che attraversa la card
+      const ph = ((o - T.centro) % 4200) / 1400;
+      if (ph < 1) {
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, cw, chh); ctx.clip();
+        const sxp = x - cw * 0.3 + ph * cw * 1.6, gr = ctx.createLinearGradient(sxp - 120 * u, 0, sxp + 120 * u, 0);
+        gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gr; ctx.translate(sxp, y + chh / 2); ctx.rotate(0.35); ctx.fillRect(-120 * u, -chh, 240 * u, chh * 2); ctx.restore();
+      }
+    }
+    ctx.restore();
+  };
+  // busta: la card esce da dietro la tasca anteriore; quando parte verso il centro passa davanti a tutto
+  const envT = () => { ctx.globalAlpha = fade; ctx.translate(cx, ey + eh / 2); ctx.scale(w, 1); ctx.translate(-cx, -(ey + eh / 2)); };
+  const flap = () => {
+    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + ew, ey); ctx.lineTo(cx, ey + eh * 0.55 * fl); ctx.closePath();
+    ctx.fillStyle = fl > 0 ? goldGrad(ctx, ex, ey, ew, eh * 0.55, sx + 0.3) : '#a87418'; ctx.fill();
+    ctx.strokeStyle = 'rgba(90,55,8,.6)'; ctx.lineWidth = 3 * u; ctx.stroke();
+  };
+  const pocket = () => {
+    ctx.beginPath(); ctx.moveTo(ex, ey + eh * 0.3); ctx.lineTo(cx, ey + eh * 0.64); ctx.lineTo(ex + ew, ey + eh * 0.3); ctx.lineTo(ex + ew, ey + eh); ctx.lineTo(ex, ey + eh); ctx.closePath();
+    ctx.fillStyle = goldGrad(ctx, ex, ey, ew, eh, sx - 0.2); ctx.fill(); ctx.strokeStyle = 'rgba(90,55,8,.55)'; ctx.lineWidth = 3 * u; ctx.stroke();
+  };
+  const cardOnTop = mv > 0;
+  if (fade > 0) {
+    ctx.save(); envT();
+    ctx.fillStyle = 'rgba(23,18,31,.35)'; ctx.fillRect(ex + 14 * u, ey + 16 * u, ew, eh); // ombra
+    ctx.fillStyle = goldGrad(ctx, ex, ey, ew, eh, sx); ctx.fillRect(ex, ey, ew, eh);
+    if (!front) { // retro: liscio con il marchio Cult Pop
+      const lg = img('/img/logo.webp');
+      if (lg) { const lh = eh * 0.42, lw = lh * lg.width / lg.height; ctx.globalAlpha = fade * 0.9; ctx.drawImage(lg, cx - lw / 2, ey + eh / 2 - lh / 2, lw, lh); }
+      ctx.restore();
+    } else if (fl > 0) {
+      pocket(); flap();
+      if (fl > 0.2) { // sigillo di ceralacca
+        const sr = eh * 0.14, sy = ey + eh * 0.55 * fl;
+        ctx.fillStyle = '#9e0f2c'; ctx.beginPath(); ctx.arc(cx, sy, sr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#c8233f'; ctx.beginPath(); ctx.arc(cx - sr * 0.12, sy - sr * 0.12, sr * 0.72, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffe9a8'; ctx.font = `900 ${sr * 0.9}px ${F}`; ctx.textAlign = 'center'; ctx.fillText('★', cx, sy + sr * 0.32); ctx.textAlign = 'left';
+      }
+      ctx.restore();
+    } else { // aperta: interno scuro, lembo ribaltato in alto, card, tasca davanti
+      ctx.fillStyle = '#6e4510'; ctx.fillRect(ex + 6 * u, ey + 6 * u, ew - 12 * u, eh * 0.5); flap();
+      ctx.restore();
+      if (!cardOnTop) drawCard();
+      ctx.save(); envT(); pocket(); ctx.restore();
+    }
+  }
+  if (cardOnTop) drawCard();
+  // popcorn: saltellano ai lati mentre si aspetta, schizzano fuori all'apertura
+  const hop = [[0.05, 0], [0.1, 700], [0.15, 1400], [0.85, 300], [0.9, 1100], [0.95, 1800]];
+  hop.forEach(([fx, d], i) => {
+    const ph = ((t + d) % 2200) / 2200, hgt = Math.sin(Math.min(1, ph * 1.6) * Math.PI) * 70 * u;
+    popcorn(ctx, W * fx, H - 70 * u - hgt, 26 * u, Math.sin(t / 400 + i) * 0.4 + ph * 2);
+  });
+  if (o != null && o > T.lembo - 100) {
+    const tt = o - (T.lembo - 100);
+    for (let i = 0; i < 46; i++) {
+      const r = rng(i * 7 + 3), start = i * 55 + r() * 120, k = tt - start;
+      if (k < 0) continue;
+      const s = k / 1000, vx = (r() - 0.5) * 900 * u, vy = -(700 + r() * 650) * u, gy = 1500 * u;
+      const x = cx + (r() - 0.5) * ew * 0.6 + vx * s, y = ey + eh * 0.1 + vy * s + 0.5 * gy * s * s;
+      if (y > H + 60 * u) continue;
+      popcorn(ctx, x, y, (18 + r() * 16) * u, r() * 6 + s * (r() - 0.5) * 8, Math.min(1, k / 120));
+    }
+  }
+  if (o != null && o > T.centro - 200 && g.el !== Infinity) confetti(ctx, W, H, u, o - T.centro + 200);
+  if (team) tag(g, team, W / 2, tagY, { bg: vinc[0]?.colore || C.lime, size: tagS });
+}
+
 // ---------- FINE: grazie e seguici (con la canzone sotto) ----------
 function fine(g) {
   const { ctx, W, H, u, t, env } = g;
@@ -710,7 +845,7 @@ function confetti(ctx, W, H, u, t) {
   ctx.globalAlpha = 1;
 }
 
-export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale', fine: 'Grazie e seguici' };
+export const SCENE_LABEL = { promo: 'Promemoria QR', classifica: 'Classifica provvisoria', generazioni: 'Generazioni in sala', sos: 'SOS', quiz: 'Quiz', chiuse: 'Votazioni chiuse', verdetto: 'Verdetto finale', premio: 'Premiazione', fine: 'Grazie e seguici' };
 
 // ---------- VOTAZIONI CHIUSE: attesa del verdetto ----------
 function chiuse(g) {
@@ -771,7 +906,8 @@ const srcOf = (p) => (/^(data:|blob:|https?:|\/)/.test(p) ? p : '/' + p);
 export async function prepareAssets(config, qr) {
   await fontsReady();
   const vc = config?.show?.votazioniChiuse;
-  await preload(['/img/logo.webp', qr?.dataUrl, qr?.ig, vc?.immagineLed && srcOf(vc.immagineLed), ...(config?.concorrenti || []).map((c) => c.foto)]);
+  const pr = config?.show?.premio;
+  await preload(['/img/logo.webp', qr?.dataUrl, qr?.ig, pr?.immagine && srcOf(pr.immagine), vc?.immagineLed && srcOf(vc.immagineLed), ...(config?.concorrenti || []).map((c) => c.foto)]);
 }
 
 export async function downloadPng(cv, name = 'cultpop-led.png') {
