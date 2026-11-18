@@ -586,14 +586,15 @@ function premio(g, scene) {
   const tagS = 50, tagY = H - tagS * 1.55 * u - 24 * u;
   // misure
   const ew = Math.min(W * 0.34, 660 * u), eh = ew * 0.62;
-  const cx = W / 2, baseY = H * 0.6 + Math.sin(t / 900) * 8 * u * (1 - e(0, T.gira));
+  // entrata: la busta sale dal basso e si posa (piccolo rimbalzo), poi fluttua appena finché non si apre
+  const still = 1 - e(0, T.gira); // 1 in attesa, 0 dopo l'apertura
+  const kIn = g.el === Infinity ? 1 : Math.min(1, t / 1100), back = kIn >= 1 ? 1 : 1 + 2.2 * Math.pow(kIn - 1, 3) + 1.2 * Math.pow(kIn - 1, 2);
+  const enter = (1 - back) * H * 0.75, alphaIn = g.el === Infinity ? 1 : ease(t / 450);
+  const cx = W / 2, baseY = H * 0.6 + enter + Math.sin(t / 1100) * 7 * u * still;
+  const tilt = ((1 - back) * -0.1 + Math.sin(t / 1700) * 0.01) * still;
   const drop = e(T.esce, T.centro) * (H * 0.55), fade = 1 - e(T.esce + 300, T.centro);
   const ex = cx - ew / 2, ey = baseY - eh / 2 + drop;
-  // rotazione: gira lenta finché è chiusa; all'apertura si ferma di fronte
-  const spin = (ms) => (ms / 5200) * Math.PI * 2;
-  let sx = Math.cos(spin(t));
-  if (o != null) { const s0 = Math.cos(spin(t - Math.min(o, t))); sx = s0 + (1 - s0) * e(0, T.gira); }
-  const front = sx >= 0, w = Math.max(0.03, Math.abs(sx));
+  const sx = Math.sin(t / 1800) * 0.25 * still; // la luce scorre piano sull'oro
   const fl = 1 - 2 * e(T.gira, T.lembo); // lembo: 1 chiuso, -1 aperto
   // la card: dentro la busta, poi sale, poi va al centro e si ingrandisce
   const finalW = Math.min(W * 0.62, (tagY - y0 - 50 * u) * 1.415), finalH = finalW / 1.415;
@@ -621,7 +622,7 @@ function premio(g, scene) {
     ctx.restore();
   };
   // busta: la card esce da dietro la tasca anteriore; quando parte verso il centro passa davanti a tutto
-  const envT = () => { ctx.globalAlpha = fade; ctx.translate(cx, ey + eh / 2); ctx.scale(w, 1); ctx.translate(-cx, -(ey + eh / 2)); };
+  const envT = () => { ctx.globalAlpha = fade * alphaIn; ctx.translate(cx, ey + eh / 2); ctx.rotate(tilt); ctx.translate(-cx, -(ey + eh / 2)); };
   const flap = () => {
     ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + ew, ey); ctx.lineTo(cx, ey + eh * 0.55 * fl); ctx.closePath();
     ctx.fillStyle = fl > 0 ? goldGrad(ctx, ex, ey, ew, eh * 0.55, sx + 0.3) : '#a87418'; ctx.fill();
@@ -636,12 +637,17 @@ function premio(g, scene) {
     ctx.save(); envT();
     ctx.fillStyle = 'rgba(23,18,31,.35)'; ctx.fillRect(ex + 14 * u, ey + 16 * u, ew, eh); // ombra
     ctx.fillStyle = goldGrad(ctx, ex, ey, ew, eh, sx); ctx.fillRect(ex, ey, ew, eh);
-    if (!front) { // retro: liscio con il marchio Cult Pop
-      const lg = img('/img/logo.webp');
-      if (lg) { const lh = eh * 0.42, lw = lh * lg.width / lg.height; ctx.globalAlpha = fade * 0.9; ctx.drawImage(lg, cx - lw / 2, ey + eh / 2 - lh / 2, lw, lh); }
-      ctx.restore();
-    } else if (fl > 0) {
+    if (fl > 0) {
       pocket(); flap();
+      if (o == null && g.el !== Infinity) { // riflesso che attraversa la busta ogni tanto
+        const ph = ((t + 1200) % 3800) / 1300;
+        if (ph < 1) {
+          ctx.save(); ctx.beginPath(); ctx.rect(ex, ey, ew, eh); ctx.clip();
+          const xs = ex - ew * 0.3 + ph * ew * 1.6, gr = ctx.createLinearGradient(xs - 90 * u, 0, xs + 90 * u, 0);
+          gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(255,250,225,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = gr; ctx.translate(xs, ey + eh / 2); ctx.rotate(0.35); ctx.fillRect(-90 * u, -eh, 180 * u, eh * 2); ctx.restore();
+        }
+      }
       if (fl > 0.2) { // sigillo di ceralacca
         const sr = eh * 0.14, sy = ey + eh * 0.55 * fl;
         ctx.fillStyle = '#9e0f2c'; ctx.beginPath(); ctx.arc(cx, sy, sr, 0, Math.PI * 2); ctx.fill();
