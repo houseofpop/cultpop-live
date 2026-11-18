@@ -38,7 +38,9 @@
     const audioOn = () => { const a = env.config?.show?.suoniAttivi; return a == null ? true : typeof a === 'object' ? !!a[q.get('show') || 'live'] : !!a; };
 
     const socket = io('/schermo', { auth: { key: q.get('key'), show: q.get('show') || 'live' }, reconnectionDelayMax: 3000 });
+    let msgSeq = 0;
     socket.on('screen', async (msg) => {
+      const my = ++msgSeq;
       if (msg.serverNow) offset = msg.serverNow - Date.now();
       if (msg.config || msg.qr) {
         env.config = msg.config || env.config;
@@ -48,6 +50,7 @@
         await prepareAssets(env.config, env.qr);
         if (audioOn()) sounds.load(env.config?.show?.suoni); // con i suoni spenti per questo show il LED resta muto
         help();
+        if (my !== msgSeq) return; // nel frattempo è arrivato uno stato più nuovo: questo è vecchio
       }
       const p = msg.state?.program;
       if (!p) return;
@@ -103,7 +106,8 @@
       const n = (p.rivelati || []).length;
       if (!init && verdSeen.key === sceneKey && n > verdSeen.n) {
         const late = Math.max(0, (env.now() - p.rivelati[n - 1]) / 1000);
-        if (n >= verdettoPos(p)) { sounds.stop(verdettoSotto()); sounds.play('fanfara', { offset: Math.min(late, 1) }); sounds.play('applauso', { at: Math.max(0, 0.4 - late) }); }
+        if (late > 3) { if (n >= verdettoPos(p)) sounds.stop(verdettoSotto()); }
+        else if (n >= verdettoPos(p)) { sounds.stop(verdettoSotto()); sounds.play('fanfara', { offset: Math.min(late, 1) }); sounds.play('applauso', { at: Math.max(0, 0.4 - late) }); }
         else sounds.play('colpo', { gain: 1.6 });
       }
       verdSeen = { key: sceneKey, n };
@@ -115,6 +119,7 @@
         if (!sfSeen.scelta && p.scelta) {
           const late = Math.max(0, (env.now() - p.sceltaAt) / 1000), at = (s) => Math.max(0, s - late);
           sounds.stop('rulloPremio');
+          if (late > 3) { sfSeen = { key: sceneKey, scelta: p.scelta }; return; } // successo mentre la pagina era scollegata
           sounds.play('whoosh', { at: at(SF_TEMPI.gonfia / 1000) });
           sounds.play('colpo', { at: at(SF_TEMPI.atterra / 1000), gain: 1.4 });
           sounds.play('squadra', { at: at(SF_TEMPI.atterra / 1000) });
@@ -129,6 +134,7 @@
       if (!init && premioSeen.key === sceneKey && !premioSeen.aperto && p.apertoAt) {
         const late = Math.max(0, (env.now() - p.apertoAt) / 1000); // la busta sul LED parte dall'istante del comando
         sounds.stop('rulloPremio');
+        if (late > 3) { premioSeen = { key: sceneKey, aperto: true }; return; } // successo mentre la pagina era scollegata: niente suoni in ritardo
         sounds.play('fanfara', { offset: Math.min(late, 1) });
         sounds.play('applauso', { at: Math.max(0, 0.4 - late) });
         const r = (i) => ((Math.sin(i * 91.7) + 1) / 2);

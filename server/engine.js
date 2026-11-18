@@ -453,6 +453,8 @@ export class ShowEngine {
 
   setSugarfreeLocked(locked) {
     if (locked && !this.s.sugarfree) throw new Error('Scegli prima la coppia degli Sugarfree');
+    if (!!locked === !!this.s.sugarfreeLocked) return; // già così: niente da rifare (e niente +25 che rivolano sul LED)
+    if (!locked && this.s.verdictPublished) throw new Error('Il verdetto è già pubblicato: il voto Sugarfree non si può più sbloccare');
     this.s.sugarfreeLocked = !!locked;
     this.s.sugarfreeLockedAt = locked ? this.now() : null; // sul LED (scena «Sugarfree») parte l'animazione dei +25
     this.log(locked ? 'Voto Sugarfree CONFERMATO e bloccato' : 'Voto Sugarfree sbloccato');
@@ -498,6 +500,7 @@ export class ShowEngine {
       scene.vincitori = st.coppie.filter((t) => t.posizione === 1).map((t) => ({ nome: t.nome, colore: t.colore, membri: t.membri.map((id) => this.contById[id]?.nome).filter(Boolean) }));
     }
     if (type === 'verdetto') {
+      if (this.s.verdictDone || (this.s.led.program?.type === 'verdetto' && this.s.led.program.rivelati?.length)) throw new Error('Il verdetto è già in onda e almeno una posizione è stata svelata: non si può ripubblicare');
       if (!this.s.sugarfree) throw new Error('Manca il voto degli Sugarfree');
       if (!this.s.sugarfreeLocked) throw new Error('Conferma (blocca) prima il voto degli Sugarfree');
       scene.standings = this.computeStandings();
@@ -540,6 +543,7 @@ export class ShowEngine {
 
   /** «QUIZ TIME»: schermata tappo per il quiz, va sul LED con un clic (anteprima + pubblica insieme). */
   ledQuizTime() {
+    if (this.s.led.program?.type === 'quiztime') return; // già sul LED: niente da rifare
     this.ledPrepare('quiztime');
     this.ledPublish();
   }
@@ -548,6 +552,7 @@ export class ShowEngine {
   ledFinale() {
     const p = this.s.led.program;
     if (p?.type !== 'premio' || !p.apertoAt) throw new Error('Prima apri la busta della premiazione');
+    if (this.now() - p.apertoAt < 4500) throw new Error('Aspetta che la gift card arrivi al centro, poi ripremi'); // doppio clic su «Apri la busta»: non salta la premiazione
     this.ledPrepare('fine');
     this.ledPublish();
   }

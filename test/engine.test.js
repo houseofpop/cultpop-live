@@ -135,6 +135,8 @@ test('Sugarfree: un solo bonus, bloccabile, verdetto solo con voto confermato', 
   for (let i = 1; i < n; i++) { clock.advance(2000); e.verdettoAvanti(); }
   assert.equal(e.screenState().program.rivelati.length, n);
   clock.advance(2000); assert.throws(() => e.verdettoAvanti(), /già tutto/);
+  assert.throws(() => e.ledPrepare('verdetto'), /già in onda/); // ripubblicarlo ricoprirebbe le carte
+  assert.throws(() => e.setSugarfreeLocked(false), /verdetto/);
   assert.equal(e.publicState().classifica[0].id, 't2');
 });
 
@@ -510,6 +512,8 @@ test('Premiazione: solo dopo il verdetto, la busta si apre una volta sola e solo
   e.premioApri();
   assert.equal(e.screenState().program.apertoAt, clock.now());
   assert.throws(() => e.premioApri(), /già aperta/);
+  assert.throws(() => e.ledFinale(), /gift card/); // doppio clic su «Apri la busta»: la schermata finale non salta la premiazione
+  clock.advance(5000);
   e.ledFinale(); // un clic: Grazie e seguici direttamente sul LED
   assert.equal(e.screenState().program.type, 'fine');
   assert.throws(() => e.ledFinale(), /busta/);

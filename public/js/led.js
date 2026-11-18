@@ -1053,7 +1053,8 @@ function verdetto(g, scene) {
       x = 50 * u; y = top + slot * (ch + gap); w = W - 100 * u; h = ch;
     }
     const since = sinceReveal(tm.posizione);
-    const k = g.el === Infinity ? 1 : since == null ? 0 : ease(since / 700);
+    // fotogramma statico: in anteprima (verdetto non ancora pubblicato) tutto svelato; sul monitor «LED adesso» com'è davvero sul LED
+    const k = g.el === Infinity ? (!scene.rivelati || since != null ? 1 : 0) : since == null ? 0 : ease(since / 700);
     if (k <= 0) {
       // carta coperta (quella che sta per essere girata vibra e si illumina)
       const next = tm.posizione === nextPos && g.el !== Infinity;
@@ -1076,7 +1077,7 @@ function verdetto(g, scene) {
   });
   const winners = order.filter((x) => x.posizione === 1);
   const sinceLast = riv.length >= positions.length ? now - riv[positions.length - 1] : null;
-  const kw = g.el === Infinity ? 1 : sinceLast == null ? 0 : ease((sinceLast - 500) / 600);
+  const kw = g.el === Infinity ? (!scene.rivelati || sinceLast != null ? 1 : 0) : sinceLast == null ? 0 : ease((sinceLast - 500) / 600);
   if (kw > 0 && winners.length) {
     const txt = winners.length > 1 ? 'EX AEQUO! VINCONO ' + winners.map((w) => w.nome.toUpperCase()).join(' E ') : `VINCONO ${winners[0].nome.toUpperCase()}!`;
     ctx.save(); ctx.globalAlpha = kw;
