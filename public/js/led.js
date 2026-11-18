@@ -763,56 +763,109 @@ function premio(g, scene) {
 }
 
 // ---------- FINE: grazie e seguici (con la canzone sotto) ----------
+function heart(ctx, x, y, r, col) {
+  ctx.save(); ctx.translate(x, y); ctx.fillStyle = col; ctx.beginPath();
+  ctx.moveTo(0, r * 0.35);
+  ctx.bezierCurveTo(-r * 1.1, -r * 0.35, -r * 0.55, -r * 1.15, 0, -r * 0.55);
+  ctx.bezierCurveTo(r * 0.55, -r * 1.15, r * 1.1, -r * 0.35, 0, r * 0.35);
+  ctx.fill(); ctx.restore();
+}
 function fine(g) {
   const { ctx, W, H, u, t, env } = g;
-  const wide = W / H > 1.3;
-  logo(g, 60 * u, 46 * u, 200 * u);
-  // emoji che salgono, come nel promemoria
-  const em = ['😂', '❤️', '😬', '😡', '🎬', '💔'];
-  ctx.font = `${70 * u}px ${F}`;
-  for (let i = 0; i < 9; i++) {
-    const r = rng(i + 11), sp = 8000 + r() * 5000, ph = ((t + r() * sp) % sp) / sp;
-    ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.7;
-    ctx.fillText(em[i % em.length], 80 * u + r() * (W - 220 * u), H + 60 * u - ph * H * 0.7);
+  const live = g.el !== Infinity;
+  const T = env.config?.show?.fine || {};
+  const handle = env.config?.show?.instagramHandle || '@cultpop.it';
+  const k = (d, dur = 650) => (live ? ease((t - d) / dur) : 1);
+  const pop = (d) => { if (!live) return 1; const x = Math.min(1, Math.max(0, (t - d) / 520)); return x >= 1 ? 1 : 1 + 2.4 * Math.pow(x - 1, 3) + 1.4 * Math.pow(x - 1, 2); };
+  logo(g, 54 * u, 40 * u, 170 * u);
+  // ---- colonna destra: card Instagram con il QR ----
+  const cw = 560 * u, ch = 760 * u, cx0 = W - cw - 120 * u, cy0 = (H - ch) / 2 + 20 * u, ccx = cx0 + cw / 2;
+  const bob = live ? Math.sin(t / 1300) * 6 * u : 0;
+  // cuori che salgono dalla card, come nelle live di Instagram
+  if (live) {
+    const cols = [C.fucsia, '#ff4f7b', C.viola, C.giallo, '#ffffff'];
+    for (let i = 0; i < 14; i++) {
+      const r = rng(i * 5 + 2), per = 3800 + r() * 2600, ph = ((t + r() * per) % per) / per;
+      const x = cx0 + cw * (0.15 + r() * 0.7) + Math.sin(ph * 7 + i) * 26 * u, y = cy0 + ch * 0.25 - ph * (cy0 + ch * 0.25 + 40 * u);
+      ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.9 * k(1600);
+      heart(ctx, x, y, (16 + r() * 16) * u, cols[i % cols.length]);
+    }
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha = 1;
-  const qrSize = (wide ? 400 : 480) * u;
-  const qx = wide ? W - qrSize - 130 * u : W / 2 - qrSize / 2, qy = wide ? H / 2 - qrSize / 2 + 40 * u : H * 0.56;
-  const cx = wide ? (qx - 40 * u) / 2 + 20 * u : W / 2, maxW = wide ? qx - 200 * u : W * 0.86;
-  const k = (d) => (g.el === Infinity ? 1 : ease((t - d) / 600));
-  // titolo
-  ctx.save(); ctx.globalAlpha = k(0); ctx.translate(cx, H * (wide ? 0.27 : 0.2)); ctx.rotate(-0.025);
-  ctx.font = `900 ${118 * u}px ${F}`; ctx.textAlign = 'center';
-  const tt = 'È FINITA.', w1 = Math.min(ctx.measureText(tt).width, maxW);
-  brush(ctx, -w1 / 2 - 50 * u, -100 * u, w1 + 100 * u, 140 * u, C.viola, 31);
-  ctx.fillStyle = '#fff'; ctx.fillText(tt, 0, 0, maxW);
+  const sc = pop(1100);
+  ctx.save(); ctx.translate(ccx, cy0 + ch / 2 + bob); ctx.rotate(0.02); ctx.scale(sc, sc); ctx.translate(-ccx, -(cy0 + ch / 2));
+  ctx.fillStyle = C.inchiostro; ctx.beginPath(); ctx.roundRect(cx0 + 16 * u, cy0 + 16 * u, cw, ch, 34 * u); ctx.fill(); // ombra piena, stile Cult Pop
+  const ring = ctx.createLinearGradient(cx0, cy0 + ch, cx0 + cw, cy0); // bordo sfumato «da Instagram» nei colori Cult Pop
+  ring.addColorStop(0, C.giallo); ring.addColorStop(0.45, C.fucsia); ring.addColorStop(1, C.viola);
+  ctx.fillStyle = ring; ctx.beginPath(); ctx.roundRect(cx0, cy0, cw, ch, 34 * u); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.roundRect(cx0 + 12 * u, cy0 + 12 * u, cw - 24 * u, ch - 24 * u, 24 * u); ctx.fill();
+  ctx.lineWidth = 3 * u; ctx.strokeStyle = C.inchiostro; ctx.beginPath(); ctx.roundRect(cx0, cy0, cw, ch, 34 * u); ctx.stroke();
+  // intestazione: avatar con il logo e il nome
+  const lg = img('/img/logo.webp'), av = 92 * u, avx = cx0 + 52 * u, avy = cy0 + 50 * u;
+  ctx.save(); ctx.beginPath(); ctx.arc(avx + av / 2, avy + av / 2, av / 2 + 6 * u, 0, Math.PI * 2); ctx.fillStyle = ring; ctx.fill();
+  ctx.beginPath(); ctx.arc(avx + av / 2, avy + av / 2, av / 2, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.clip();
+  if (lg) { const lh = av * 0.78, lw = lh * lg.width / lg.height; ctx.drawImage(lg, avx + av / 2 - lw / 2, avy + av / 2 - lh / 2, lw, lh); }
   ctx.restore();
-  ctx.save(); ctx.globalAlpha = k(350); ctx.textAlign = 'center';
-  ctx.font = `900 ${50 * u}px ${F}`; ctx.fillStyle = C.inchiostro;
-  ctx.fillText('(PER STASERA)', cx, H * (wide ? 0.27 : 0.2) + 75 * u, maxW);
-  ctx.restore();
-  // ringraziamento ironico
-  const y2 = H * (wide ? 0.5 : 0.37);
-  ctx.save(); ctx.globalAlpha = k(800); ctx.textAlign = 'center';
-  ctx.font = `900 ${56 * u}px ${F}`; ctx.fillStyle = C.inchiostro;
-  ctx.fillText('Grazie per aver giocato con noi!', cx, y2, maxW);
-  ctx.font = `800 ${42 * u}px ${F}`;
-  ['Millennials: il mal di schiena vi aspetta a casa.', 'Gen Z: potete riaprire TikTok, lo sappiamo che non vedevate l’ora.']
-    .forEach((l, i) => ctx.fillText(l, cx, y2 + 72 * u + i * 56 * u, maxW));
-  ctx.restore();
-  // QR di Instagram
+  ctx.fillStyle = C.inchiostro; ctx.textAlign = 'left';
+  ctx.font = `900 ${40 * u}px ${F}`; ctx.fillText(handle, avx + av + 26 * u, avy + 44 * u, cw - av - 120 * u);
+  ctx.font = `700 ${26 * u}px ${F}`; ctx.fillStyle = '#5b5566'; ctx.fillText('Cult Pop · live show', avx + av + 26 * u, avy + 80 * u);
+  // QR
+  const qs = 400 * u, qx = ccx - qs / 2, qy = cy0 + 186 * u;
   const qr = env.qr?.ig && img(env.qr.ig);
-  ctx.save(); ctx.globalAlpha = k(1300);
-  ctx.translate(qx + qrSize / 2, qy + qrSize / 2); ctx.rotate(0.03); ctx.translate(-(qx + qrSize / 2), -(qy + qrSize / 2));
-  ctx.fillStyle = C.inchiostro; ctx.fillRect(qx + 14 * u, qy + 14 * u, qrSize + 30 * u, qrSize + 30 * u);
-  ctx.fillStyle = '#fff'; ctx.fillRect(qx - 15 * u, qy - 15 * u, qrSize + 30 * u, qrSize + 30 * u);
-  if (qr) ctx.drawImage(qr, qx, qy, qrSize, qrSize);
+  if (qr) ctx.drawImage(qr, qx, qy, qs, qs); else { ctx.fillStyle = '#eee'; ctx.fillRect(qx, qy, qs, qs); }
+  // pulsante «Segui»
+  const bw = cw - 104 * u, bh = 86 * u, bx = cx0 + 52 * u, by = cy0 + ch - bh - 48 * u;
+  const press = live ? 1 + Math.max(0, Math.sin(t / 420)) * 0.035 : 1;
+  ctx.save(); ctx.translate(ccx, by + bh / 2); ctx.scale(press, press); ctx.translate(-ccx, -(by + bh / 2));
+  ctx.fillStyle = C.inchiostro; ctx.beginPath(); ctx.roundRect(bx + 6 * u, by + 6 * u, bw, bh, 18 * u); ctx.fill();
+  ctx.fillStyle = C.viola; ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 18 * u); ctx.fill();
+  ctx.lineWidth = 3 * u; ctx.strokeStyle = C.inchiostro; ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.font = `900 ${42 * u}px ${F}`; ctx.textAlign = 'center';
+  ctx.fillText(T.bottone || 'SEGUI CULT POP', ccx, by + bh * 0.66, bw - 40 * u);
   ctx.restore();
-  const handle = (env.config?.show?.instagramHandle || '@cultpop.it').toUpperCase();
-  ctx.save(); ctx.globalAlpha = k(1500);
-  tag(g, `SEGUICI ${handle}`, qx + qrSize / 2, qy - 80 * u, { bg: C.fucsia, size: 40 });
-  tag(g, 'NON TI LIBERERAI DI NOI COSÌ FACILMENTE', qx + qrSize / 2, qy + qrSize + 40 * u, { bg: C.lime, size: 24 });
   ctx.restore();
+  // ---- colonna sinistra: saluto e appello ----
+  const lx = 120 * u, lw2 = cx0 - lx - 110 * u, lcx = lx + lw2 / 2;
+  // È FINITA. (per stasera)
+  ctx.save(); ctx.globalAlpha = k(0); ctx.translate(lcx, H * 0.29 + (1 - k(0)) * 40 * u); ctx.rotate(-0.03);
+  ctx.font = `900 ${132 * u}px ${F}`; ctx.textAlign = 'center';
+  const tt = T.titolo || 'È FINITA.', w1 = Math.min(ctx.measureText(tt).width, lw2);
+  brush(ctx, -w1 / 2 - 60 * u, -112 * u, w1 + 120 * u, 156 * u, C.viola, 31);
+  ctx.fillStyle = '#fff'; ctx.fillText(tt, 0, 0, lw2);
+  ctx.restore();
+  ctx.save(); ctx.globalAlpha = k(300); ctx.translate(lcx + w1 * 0.28, H * 0.29 + 92 * u); ctx.rotate(0.05);
+  ctx.font = `900 ${50 * u}px ${F}`; ctx.textAlign = 'center';
+  const st = T.sottotitolo || '(PER STASERA)', sw = ctx.measureText(st).width;
+  ctx.fillStyle = C.lime; ctx.fillRect(-sw / 2 - 22 * u, -46 * u, sw + 44 * u, 66 * u);
+  ctx.lineWidth = 3 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(-sw / 2 - 22 * u, -46 * u, sw + 44 * u, 66 * u);
+  ctx.fillStyle = C.inchiostro; ctx.fillText(st, 0, 0);
+  ctx.restore();
+  // Grazie
+  ctx.save(); ctx.globalAlpha = k(700); ctx.textAlign = 'center'; ctx.fillStyle = C.inchiostro;
+  ctx.font = `900 ${64 * u}px ${F}`; ctx.fillText(T.grazie || 'Grazie per aver giocato con noi!', lcx, H * 0.53, lw2);
+  ctx.restore();
+  // appello: se ci seguite, torniamo più spesso
+  const py = H * 0.6, pw = lw2, ph2 = 230 * u, px = lx;
+  const kp = pop(1700);
+  ctx.save(); ctx.globalAlpha = Math.min(1, kp); ctx.translate(lcx, py + ph2 / 2); ctx.rotate(-0.012); ctx.scale(kp, kp); ctx.translate(-lcx, -(py + ph2 / 2));
+  ctx.fillStyle = C.inchiostro; ctx.fillRect(px + 12 * u, py + 12 * u, pw, ph2);
+  ctx.fillStyle = C.giallo; ctx.fillRect(px, py, pw, ph2);
+  ctx.lineWidth = 3 * u; ctx.strokeStyle = C.inchiostro; ctx.strokeRect(px, py, pw, ph2);
+  ctx.textAlign = 'center'; ctx.fillStyle = C.inchiostro;
+  ctx.font = `900 ${54 * u}px ${F}`; ctx.fillText(T.appello || 'VUOI UN’ALTRA SERATA COSÌ?', lcx, py + 82 * u, pw - 60 * u);
+  ctx.font = `800 ${36 * u}px ${F}`;
+  const testo = T.testo || 'Seguici su Instagram e portaci i tuoi amici:\npiù siamo, più spesso torniamo.';
+  const lines = testo.split('\n').flatMap((l) => wrapLines(ctx, l, pw - 90 * u));
+  lines.slice(0, 2).forEach((l, i) => ctx.fillText(l, lcx, py + 140 * u + i * 46 * u));
+  ctx.restore();
+  // freccia che indica il QR
+  if (kp >= 0.99) {
+    const ax = px + pw + 22 * u, ay = py + ph2 / 2, nudge = live ? Math.sin(t / 300) * 10 * u : 0;
+    ctx.save(); ctx.translate(ax + nudge, ay); ctx.fillStyle = C.fucsia; ctx.strokeStyle = C.inchiostro; ctx.lineWidth = 3 * u;
+    ctx.beginPath(); ctx.moveTo(0, -18 * u); ctx.lineTo(40 * u, -18 * u); ctx.lineTo(40 * u, -40 * u); ctx.lineTo(84 * u, 0); ctx.lineTo(40 * u, 40 * u); ctx.lineTo(40 * u, 18 * u); ctx.lineTo(0, 18 * u); ctx.closePath();
+    ctx.fill(); ctx.stroke(); ctx.restore();
+  }
+  ctx.textAlign = 'left';
 }
 
 function wrapLines(ctx, text, maxW) {
