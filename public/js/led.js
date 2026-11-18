@@ -560,12 +560,37 @@ function popcorn(ctx, x, y, r, rot, alpha = 1) {
   ctx.fillStyle = '#d99a2b'; ctx.beginPath(); ctx.arc(r * 0.1, r * 0.55, r * 0.18, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
-function goldGrad(ctx, x, y, w, h, shift = 0) {
-  const gr = ctx.createLinearGradient(x, y, x + w, y + h);
-  const k = (v) => Math.min(1, Math.max(0, v));
-  gr.addColorStop(0, '#8a5a12'); gr.addColorStop(k(0.28 + shift * 0.3), '#d9a63a'); gr.addColorStop(k(0.45 + shift * 0.3), '#fbe7a1');
-  gr.addColorStop(k(0.62 + shift * 0.3), '#c9902a'); gr.addColorStop(1, '#7a4c0e');
+// oro "foil": tanti passaggi di luce, come una lamina vera
+function foil(ctx, x0, y0, x1, y1, shift = 0) {
+  const gr = ctx.createLinearGradient(x0, y0, x1, y1);
+  const k = (v) => Math.min(1, Math.max(0, v + shift * 0.25));
+  gr.addColorStop(0, '#5e3c0c'); gr.addColorStop(k(0.18), '#9a6c1f'); gr.addColorStop(k(0.36), '#dcb862');
+  gr.addColorStop(k(0.48), '#fff0c2'); gr.addColorStop(k(0.6), '#d9b35f'); gr.addColorStop(k(0.8), '#94661c'); gr.addColorStop(1, '#5a390b');
   return gr;
+}
+// trama spazzolata della carta metallizzata (generata una volta sola)
+let foilTex = null;
+function foilPattern(ctx) {
+  if (!foilTex && typeof document !== 'undefined') {
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const x = c.getContext('2d'), r = rng(42);
+    x.fillStyle = '#808080'; x.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 2200; i++) {
+      const v = Math.floor(90 + r() * 80), y = r() * 512, len = 40 + r() * 260, x0 = r() * 512;
+      x.strokeStyle = `rgba(${v},${v},${v},${0.25 + r() * 0.35})`; x.lineWidth = 0.6 + r() * 1.2;
+      x.beginPath(); x.moveTo(x0, y); x.lineTo(x0 + len, y + len * 0.08); x.stroke();
+    }
+    foilTex = c;
+  }
+  return foilTex ? ctx.createPattern(foilTex, 'repeat') : null;
+}
+function sparkle(ctx, x, y, r, a) {
+  if (a <= 0.02) return;
+  ctx.save(); ctx.globalAlpha = Math.min(1, a); ctx.translate(x, y);
+  ctx.shadowColor = 'rgba(255,220,140,.9)'; ctx.shadowBlur = r * 1.5; ctx.fillStyle = '#fff6d8';
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) { const rr = i % 2 ? r * 0.18 : r, an = (i / 8) * Math.PI * 2; ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
 }
 function premio(g, scene) {
   const { ctx, W, H, u, t, env } = g;
@@ -574,33 +599,38 @@ function premio(g, scene) {
   const now = env.now ? env.now() : Date.now();
   const o = scene.apertoAt ? (g.el === Infinity ? 1e9 : now - scene.apertoAt) : null; // ms dall'apertura
   const T = PREMIO_TEMPI, e = (a, b) => (o == null ? 0 : ease((o - a) / (b - a)));
-  // luce calda dal centro
-  const vg = ctx.createRadialGradient(W / 2, H * 0.55, 40 * u, W / 2, H * 0.55, Math.max(W, H) * 0.7);
-  vg.addColorStop(0, 'rgba(255,224,140,.35)'); vg.addColorStop(1, 'rgba(23,18,31,.45)');
+  const live = g.el !== Infinity;
+  // sala al buio con un occhio di bue caldo al centro
+  const vg = ctx.createRadialGradient(W / 2, H * 0.56, 60 * u, W / 2, H * 0.56, Math.max(W, H) * 0.62);
+  vg.addColorStop(0, 'rgba(40,26,8,.30)'); vg.addColorStop(0.45, 'rgba(20,13,22,.72)'); vg.addColorStop(1, 'rgba(10,7,14,.92)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   logo(g, 40 * u, 26 * u, 140 * u);
   const y0 = title(g, (P.titolo || 'LA PREMIAZIONE').toUpperCase(), 30 * u, { size: 76, color: C.viola });
   const vinc = scene.vincitori || [];
-  const nomi = (v) => (v.membri?.length ? ' · ' + v.membri.join(' E ').toUpperCase() : '');
-  const team = vinc.length ? (vinc.length > 1 ? 'VINCONO ' + vinc.map((v) => v.nome.toUpperCase()).join(' E ') : 'VINCE LA ' + vinc[0].nome.toUpperCase() + nomi(vinc[0])) : '';
+  const team = vinc.length ? (vinc.length > 1 ? 'VINCONO ' + vinc.map((v) => v.nome.toUpperCase()).join(' E ') : 'VINCE LA ' + vinc[0].nome.toUpperCase()) : '';
   const tagS = 50, tagY = H - tagS * 1.55 * u - 24 * u;
-  // misure
+  // misure e movimento: la busta sale dal basso e si posa, poi respira appena finché non si apre
   const ew = Math.min(W * 0.34, 660 * u), eh = ew * 0.62;
-  // entrata: la busta sale dal basso e si posa (piccolo rimbalzo), poi fluttua appena finché non si apre
-  const still = 1 - e(0, T.gira); // 1 in attesa, 0 dopo l'apertura
-  const kIn = g.el === Infinity ? 1 : Math.min(1, t / 1100), back = kIn >= 1 ? 1 : 1 + 2.2 * Math.pow(kIn - 1, 3) + 1.2 * Math.pow(kIn - 1, 2);
-  const enter = (1 - back) * H * 0.75, alphaIn = g.el === Infinity ? 1 : ease(t / 450);
-  const cx = W / 2, baseY = H * 0.6 + enter + Math.sin(t / 1100) * 7 * u * still;
-  const tilt = ((1 - back) * -0.1 + Math.sin(t / 1700) * 0.01) * still;
+  const still = 1 - e(0, T.gira);
+  const kIn = live ? Math.min(1, t / 1100) : 1, back = kIn >= 1 ? 1 : 1 + 2.2 * Math.pow(kIn - 1, 3) + 1.2 * Math.pow(kIn - 1, 2);
+  const enter = (1 - back) * H * 0.75, alphaIn = live ? ease(t / 450) : 1;
+  const cx = W / 2, baseY = H * 0.6 + enter + Math.sin(t / 1100) * 6 * u * still;
+  const tilt = ((1 - back) * -0.08 + Math.sin(t / 1700) * 0.008) * still;
   const drop = e(T.esce, T.centro) * (H * 0.55), fade = 1 - e(T.esce + 300, T.centro);
-  const ex = cx - ew / 2, ey = baseY - eh / 2 + drop;
-  const sx = Math.sin(t / 1800) * 0.25 * still; // la luce scorre piano sull'oro
+  const ex = cx - ew / 2, ey = baseY - eh / 2 + drop, ecy = ey + eh / 2;
+  const sx = Math.sin(t / 1800) * still; // la luce scorre piano sull'oro
   const fl = 1 - 2 * e(T.gira, T.lembo); // lembo: 1 chiuso, -1 aperto
+  // alone dorato dietro la busta (poi dietro la card)
+  const mvG = e(T.esce, T.centro);
+  const gR = (ew * 0.85 + mvG * ew * 0.55) * (1 + Math.sin(t / 900) * 0.04), gy = ecy - mvG * (ecy - H * 0.52);
+  const glow = ctx.createRadialGradient(cx, gy, 0, cx, gy, gR);
+  glow.addColorStop(0, `rgba(255,205,110,${0.32 * alphaIn})`); glow.addColorStop(1, 'rgba(255,205,110,0)');
+  ctx.fillStyle = glow; ctx.fillRect(cx - gR, gy - gR, gR * 2, gR * 2);
   // la card: dentro la busta, poi sale, poi va al centro e si ingrandisce
   const finalW = Math.min(W * 0.62, (tagY - y0 - 50 * u) * 1.415), finalH = finalW / 1.415;
   const inW = ew * 0.88, inH = inW / 1.415;
   const rise = e(T.lembo - 100, T.esce), mv = e(T.esce, T.centro);
-  const inY = ey + eh * 0.12 - rise * inH * 0.62;
+  const inY = ey + eh * 0.1 - rise * inH * 0.62;
   const fy = y0 + 18 * u + (tagY - y0 - 36 * u - finalH) / 2;
   const cw = inW + (finalW - inW) * mv, chh = cw / 1.415;
   const float = o != null && o > T.centro ? Math.sin((o - T.centro) / 700) * 6 * u : 0;
@@ -608,7 +638,7 @@ function premio(g, scene) {
     if (!card || o == null || rise <= 0) return;
     const x = cx - cw / 2, y = (mv > 0 ? inY + (fy - inY) * mv : inY) + float;
     ctx.save(); ctx.translate(cx, y + chh / 2); ctx.rotate((1 - mv) * -0.03); ctx.translate(-cx, -(y + chh / 2));
-    ctx.shadowColor = 'rgba(23,18,31,.45)'; ctx.shadowBlur = 30 * u; ctx.shadowOffsetY = 14 * u;
+    ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 40 * u; ctx.shadowOffsetY = 18 * u;
     ctx.drawImage(card, x, y, cw, chh); ctx.shadowColor = 'transparent';
     if (o > T.centro) { // riflesso che attraversa la card
       const ph = ((o - T.centro) % 4200) / 1400;
@@ -621,66 +651,102 @@ function premio(g, scene) {
     }
     ctx.restore();
   };
-  // busta: la card esce da dietro la tasca anteriore; quando parte verso il centro passa davanti a tutto
-  const envT = () => { ctx.globalAlpha = fade * alphaIn; ctx.translate(cx, ey + eh / 2); ctx.rotate(tilt); ctx.translate(-cx, -(ey + eh / 2)); };
-  const flap = () => {
-    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + ew, ey); ctx.lineTo(cx, ey + eh * 0.55 * fl); ctx.closePath();
-    ctx.fillStyle = fl > 0 ? goldGrad(ctx, ex, ey, ew, eh * 0.55, sx + 0.3) : '#a87418'; ctx.fill();
-    ctx.strokeStyle = 'rgba(90,55,8,.6)'; ctx.lineWidth = 3 * u; ctx.stroke();
+  // ---- busta: corpo, alette laterali, aletta inferiore, lembo superiore, sigillo di ceralacca ----
+  const envT = () => { ctx.globalAlpha = fade * alphaIn; ctx.translate(cx, ecy); ctx.rotate(tilt); ctx.translate(-cx, -ecy); };
+  const rr = 8 * u;
+  const bodyPath = () => { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(ex, ey, ew, eh, rr) : ctx.rect(ex, ey, ew, eh); };
+  const piece = (pts, fill, shadow = 0) => {
+    ctx.save();
+    if (shadow) { ctx.shadowColor = 'rgba(40,22,2,.45)'; ctx.shadowBlur = shadow * u; ctx.shadowOffsetY = shadow * 0.3 * u; }
+    ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+    ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath();
+    ctx.strokeStyle = 'rgba(255,238,190,.45)'; ctx.lineWidth = 1.6 * u; ctx.stroke(); // filo di luce sulla piega
+  };
+  const texture = () => { // trama spazzolata sopra tutto l'oro
+    const pat = foilPattern(ctx); if (!pat) return;
+    ctx.save(); bodyPath(); ctx.clip(); ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha *= 0.4;
+    ctx.fillStyle = pat; ctx.fillRect(ex, ey - eh, ew, eh * 2); ctx.restore();
   };
   const pocket = () => {
-    ctx.beginPath(); ctx.moveTo(ex, ey + eh * 0.3); ctx.lineTo(cx, ey + eh * 0.64); ctx.lineTo(ex + ew, ey + eh * 0.3); ctx.lineTo(ex + ew, ey + eh); ctx.lineTo(ex, ey + eh); ctx.closePath();
-    ctx.fillStyle = goldGrad(ctx, ex, ey, ew, eh, sx - 0.2); ctx.fill(); ctx.strokeStyle = 'rgba(90,55,8,.55)'; ctx.lineWidth = 3 * u; ctx.stroke();
+    piece([[ex, ey], [cx - ew * 0.02, ey + eh * 0.56], [ex, ey + eh]], foil(ctx, ex, ey, cx, ey + eh, sx - 0.6));
+    piece([[ex + ew, ey], [cx + ew * 0.02, ey + eh * 0.56], [ex + ew, ey + eh]], foil(ctx, ex + ew, ey, cx, ey + eh, -sx - 0.6));
+    piece([[ex, ey + eh], [cx, ey + eh * 0.44], [ex + ew, ey + eh]], foil(ctx, ex, ey + eh * 0.4, ex + ew, ey + eh, sx + 0.2), 16);
+  };
+  const flap = () => {
+    const tip = ey + eh * 0.6 * fl;
+    piece([[ex, ey], [ex + ew, ey], [cx, tip]], fl > 0 ? foil(ctx, ex, ey, ex + ew, tip, sx + 0.4) : foil(ctx, ex, tip, ex + ew, ey, -1.2), fl > 0 ? 22 : 0);
+  };
+  const seal = () => {
+    const sr = eh * 0.13, sy = ey + eh * 0.6 * fl - sr * 0.15, r = rng(7);
+    ctx.save(); ctx.shadowColor = 'rgba(30,0,5,.55)'; ctx.shadowBlur = 14 * u; ctx.shadowOffsetY = 5 * u;
+    ctx.beginPath();
+    for (let i = 0; i < 28; i++) { const an = (i / 28) * Math.PI * 2, k = sr * (1 + (r() - 0.5) * 0.14); ctx.lineTo(cx + Math.cos(an) * k, sy + Math.sin(an) * k); }
+    ctx.closePath();
+    const wax = ctx.createRadialGradient(cx - sr * 0.35, sy - sr * 0.4, sr * 0.1, cx, sy, sr * 1.1);
+    wax.addColorStop(0, '#e04257'); wax.addColorStop(0.55, '#a5132e'); wax.addColorStop(1, '#5c0515');
+    ctx.fillStyle = wax; ctx.fill(); ctx.restore();
+    ctx.lineWidth = 3 * u; ctx.strokeStyle = 'rgba(60,0,10,.45)'; ctx.beginPath(); ctx.arc(cx, sy, sr * 0.7, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,160,170,.25)'; ctx.beginPath(); ctx.arc(cx - 1.5 * u, sy - 1.5 * u, sr * 0.7, Math.PI * 0.9, Math.PI * 1.7); ctx.stroke();
+    // stella impressa in oro
+    const star = (dx, dy, R) => { ctx.beginPath(); for (let i = 0; i < 10; i++) { const an = -Math.PI / 2 + (i / 10) * Math.PI * 2, k = i % 2 ? R * 0.45 : R; ctx.lineTo(cx + dx + Math.cos(an) * k, sy + dy + Math.sin(an) * k); } ctx.closePath(); };
+    star(1.5 * u, 2 * u, sr * 0.48); ctx.fillStyle = 'rgba(50,0,8,.55)'; ctx.fill();
+    star(0, 0, sr * 0.48); ctx.fillStyle = foil(ctx, cx - sr * 0.5, sy - sr * 0.5, cx + sr * 0.5, sy + sr * 0.5, 0); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.beginPath(); ctx.ellipse(cx - sr * 0.4, sy - sr * 0.45, sr * 0.28, sr * 0.14, -0.6, 0, Math.PI * 2); ctx.fill();
+  };
+  const shine = () => { // riflesso che attraversa la busta ogni tanto
+    if (o != null || !live) return;
+    const ph = ((t + 1200) % 4200) / 1500; if (ph >= 1) return;
+    ctx.save(); bodyPath(); ctx.clip(); ctx.globalCompositeOperation = 'lighter';
+    const xs = ex - ew * 0.3 + ph * ew * 1.6, gr = ctx.createLinearGradient(xs - 110 * u, 0, xs + 110 * u, 0);
+    gr.addColorStop(0, 'rgba(255,230,170,0)'); gr.addColorStop(0.5, 'rgba(255,230,170,.32)'); gr.addColorStop(1, 'rgba(255,230,170,0)');
+    ctx.fillStyle = gr; ctx.translate(xs, ecy); ctx.rotate(0.35); ctx.fillRect(-110 * u, -eh, 220 * u, eh * 2); ctx.restore();
   };
   const cardOnTop = mv > 0;
   if (fade > 0) {
     ctx.save(); envT();
-    ctx.fillStyle = 'rgba(23,18,31,.35)'; ctx.fillRect(ex + 14 * u, ey + 16 * u, ew, eh); // ombra
-    ctx.fillStyle = goldGrad(ctx, ex, ey, ew, eh, sx); ctx.fillRect(ex, ey, ew, eh);
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 60 * u; ctx.shadowOffsetY = 30 * u;
+    bodyPath(); ctx.fillStyle = fl > 0 ? foil(ctx, ex, ey, ex + ew, ey + eh, sx) : '#3a2405'; ctx.fill(); ctx.restore();
+    if (fl <= 0) { const inn = ctx.createLinearGradient(0, ey, 0, ey + eh * 0.6); inn.addColorStop(0, '#2a1903'); inn.addColorStop(1, '#6b4612'); ctx.fillStyle = inn; bodyPath(); ctx.fill(); }
     if (fl > 0) {
-      pocket(); flap();
-      if (o == null && g.el !== Infinity) { // riflesso che attraversa la busta ogni tanto
-        const ph = ((t + 1200) % 3800) / 1300;
-        if (ph < 1) {
-          ctx.save(); ctx.beginPath(); ctx.rect(ex, ey, ew, eh); ctx.clip();
-          const xs = ex - ew * 0.3 + ph * ew * 1.6, gr = ctx.createLinearGradient(xs - 90 * u, 0, xs + 90 * u, 0);
-          gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(255,250,225,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.fillStyle = gr; ctx.translate(xs, ey + eh / 2); ctx.rotate(0.35); ctx.fillRect(-90 * u, -eh, 180 * u, eh * 2); ctx.restore();
-        }
-      }
-      if (fl > 0.2) { // sigillo di ceralacca
-        const sr = eh * 0.14, sy = ey + eh * 0.55 * fl;
-        ctx.fillStyle = '#9e0f2c'; ctx.beginPath(); ctx.arc(cx, sy, sr, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#c8233f'; ctx.beginPath(); ctx.arc(cx - sr * 0.12, sy - sr * 0.12, sr * 0.72, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#ffe9a8'; ctx.font = `900 ${sr * 0.9}px ${F}`; ctx.textAlign = 'center'; ctx.fillText('★', cx, sy + sr * 0.32); ctx.textAlign = 'left';
-      }
+      pocket(); flap(); texture(); shine();
+      if (fl > 0.2) seal();
+      bodyPath(); ctx.strokeStyle = 'rgba(70,42,6,.8)'; ctx.lineWidth = 2 * u; ctx.stroke();
       ctx.restore();
     } else { // aperta: interno scuro, lembo ribaltato in alto, card, tasca davanti
-      ctx.fillStyle = '#6e4510'; ctx.fillRect(ex + 6 * u, ey + 6 * u, ew - 12 * u, eh * 0.5); flap();
+      flap();
       ctx.restore();
       if (!cardOnTop) drawCard();
-      ctx.save(); envT(); pocket(); ctx.restore();
+      ctx.save(); envT(); pocket(); texture(); ctx.restore();
     }
   }
   if (cardOnTop) drawCard();
-  // popcorn: saltellano ai lati mentre si aspetta, schizzano fuori all'apertura
-  const hop = [[0.05, 0], [0.1, 700], [0.15, 1400], [0.85, 300], [0.9, 1100], [0.95, 1800]];
-  hop.forEach(([fx, d], i) => {
-    const ph = ((t + d) % 2200) / 2200, hgt = Math.sin(Math.min(1, ph * 1.6) * Math.PI) * 70 * u;
-    popcorn(ctx, W * fx, H - 70 * u - hgt, 26 * u, Math.sin(t / 400 + i) * 0.4 + ph * 2);
-  });
+  // scintille intorno alla busta (e poi intorno alla card)
+  if (live) {
+    const spots = [[-0.62, -0.55], [0.6, -0.62], [-0.7, 0.35], [0.68, 0.42], [-0.3, -0.85], [0.34, 0.82], [0.85, -0.1], [-0.88, -0.05]];
+    const sw = ew * (1 + mvG * 0.9), sh = eh * (1 + mvG * 0.9), scy = mvG > 0 ? gy : ecy;
+    spots.forEach(([fx, fy2], i) => sparkle(ctx, cx + fx * sw * 0.75, scy + fy2 * sh * 0.75, (14 + (i % 3) * 6) * u, Math.pow(Math.max(0, Math.sin(t / 520 + i * 1.7)), 6) * alphaIn));
+  }
+  // popcorn: solo quando si apre la busta (schizzano fuori), poi saltellano ai lati
+  if (o != null && o > T.centro) {
+    const ka = Math.min(1, (o - T.centro) / 500);
+    [[0.05, 0], [0.1, 700], [0.15, 1400], [0.85, 300], [0.9, 1100], [0.95, 1800]].forEach(([fx, d], i) => {
+      const ph = ((t + d) % 2200) / 2200, hgt = Math.sin(Math.min(1, ph * 1.6) * Math.PI) * 70 * u;
+      popcorn(ctx, W * fx, H - 70 * u - hgt, 26 * u, Math.sin(t / 400 + i) * 0.4 + ph * 2, ka);
+    });
+  }
   if (o != null && o > T.lembo - 100) {
     const tt = o - (T.lembo - 100);
     for (let i = 0; i < 46; i++) {
       const r = rng(i * 7 + 3), start = i * 55 + r() * 120, k = tt - start;
       if (k < 0) continue;
-      const s = k / 1000, vx = (r() - 0.5) * 900 * u, vy = -(700 + r() * 650) * u, gy = 1500 * u;
-      const x = cx + (r() - 0.5) * ew * 0.6 + vx * s, y = ey + eh * 0.1 + vy * s + 0.5 * gy * s * s;
+      const s2 = k / 1000, vx = (r() - 0.5) * 900 * u, vy = -(700 + r() * 650) * u, gyy = 1500 * u;
+      const x = cx + (r() - 0.5) * ew * 0.6 + vx * s2, y = ey + eh * 0.1 + vy * s2 + 0.5 * gyy * s2 * s2;
       if (y > H + 60 * u) continue;
-      popcorn(ctx, x, y, (18 + r() * 16) * u, r() * 6 + s * (r() - 0.5) * 8, Math.min(1, k / 120));
+      popcorn(ctx, x, y, (18 + r() * 16) * u, r() * 6 + s2 * (r() - 0.5) * 8, Math.min(1, k / 120));
     }
   }
-  if (o != null && o > T.centro - 200 && g.el !== Infinity) confetti(ctx, W, H, u, o - T.centro + 200);
+  if (o != null && o > T.centro - 200 && live) confetti(ctx, W, H, u, o - T.centro + 200);
   if (team) tag(g, team, W / 2, tagY, { bg: vinc[0]?.colore || C.lime, size: tagS });
 }
 
