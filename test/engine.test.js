@@ -103,10 +103,10 @@ test('punteggio completo: quiz per domanda, pubblico, Sugarfree, correzioni', ()
   e.setSugarfree('t3');
   e.addAdjustment('t1', -5, 'errore di lettura');
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t]));
-  // 5 domande: 50 / 5 = 10 punti per risposta giusta; Sugarfree 20
-  assert.equal(by.t1.totale, 10 + 30 + 0 - 5);
-  assert.equal(by.t2.totale, 30 + 20);
-  assert.equal(by.t3.totale, 0 + 10 + 20);
+  // 5 domande: 50 / 5 = 10 punti per risposta giusta; pubblico 40/25/10; Sugarfree 25
+  assert.equal(by.t1.totale, 10 + 40 + 0 - 5);
+  assert.equal(by.t2.totale, 30 + 25);
+  assert.equal(by.t3.totale, 0 + 10 + 25);
   assert.equal(e.addAdjustment('t1', 3).delta, 3); // la motivazione è facoltativa
   assert.throws(() => e.quizOpen('q9'), /inesistente/);
 });
@@ -117,7 +117,7 @@ test('Sugarfree: un solo bonus, bloccabile, verdetto solo con voto confermato', 
   e.setSugarfree('t1');
   e.setSugarfree('t2'); // sostituisce, non somma
   const st = e.computeStandings();
-  assert.equal(st.coppie.reduce((s, t) => s + t.sugarfree, 0), 20);
+  assert.equal(st.coppie.reduce((s, t) => s + t.sugarfree, 0), 25);
   assert.throws(() => e.ledPrepare('verdetto'), /Conferma/);
   e.setSugarfreeLocked(true);
   assert.throws(() => e.setSugarfree('t3'), /bloccato/);
@@ -252,7 +252,7 @@ test('SOS: il ritorno automatico funziona ancora se lo si riattiva da config', (
 
 test('parità di punteggio segnalata alla regia', () => {
   const { e } = make();
-  assert.equal(e.adminState().parita.length, 1); // tutte a 20 punti all'inizio (premi pubblico divisi)
+  assert.equal(e.adminState().parita.length, 1); // tutte a 25 punti all'inizio (premi pubblico divisi)
   play(e, 'q1', { t1: C('q1'), t2: C('q1'), t3: W('q1') });
   const p = e.adminState().parita;
   assert.equal(p.length, 1);
@@ -393,16 +393,16 @@ test('punteggio: il massimo teorico e gli equilibri tra quiz, pubblico e Sugarfr
   const { per, sos } = e.quizPointsPer();
   assert.equal(per * baseConfig.quiz.domande.length, 50); // quiz pieno = 50
   assert.equal(sos * 2, per);
-  // squadra perfetta senza SOS: 50 quiz + 30 pubblico + 20 Sugarfree = 100
+  // squadra perfetta senza SOS: 50 quiz + 40 pubblico + 25 Sugarfree = 115
   e.react('s1', [['c1', 'ride', 3]]); // le reazioni valgono solo prima del quiz
   for (const q of baseConfig.quiz.domande) play(e, q.id, { t1: C(q.id), t2: W(q.id), t3: W(q.id) });
   e.setSugarfree('t1');
   const by = Object.fromEntries(e.computeStandings().coppie.map((t) => [t.id, t]));
-  assert.equal(by.t1.totale, 100);
-  assert.equal(by.t2.totale + by.t3.totale, 30); // premi pubblico 20 + 10 (pari: 15 + 15)
-  // pubblico in parità totale: 20 a testa (60 / 3)
+  assert.equal(by.t1.totale, 115);
+  assert.equal(by.t2.totale + by.t3.totale, 35); // premi pubblico 25 + 10 (pari: 17,5 + 17,5)
+  // pubblico in parità totale: 25 a testa (75 / 3)
   const { e: e2 } = make();
-  assert.deepEqual(e2.computeStandings().coppie.map((t) => t.pubblico), [20, 20, 20]);
+  assert.deepEqual(e2.computeStandings().coppie.map((t) => t.pubblico), [25, 25, 25]);
 });
 
 test('quiz: la domanda si può rimettere sul LED dopo un\'altra scena, con lo stato intatto', () => {

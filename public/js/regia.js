@@ -6,6 +6,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const L = 'ABCDEFGH';
 const ss = { get: (k) => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch { /* */ } } };
+const num = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ',')); // 17,5 in caso di parità
 const hhmm = (t) => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
 // Aggiorna il DOM sul posto: un clic dell'operatore non va mai perso perché il pulsante è stato ricreato.
@@ -393,7 +394,7 @@ function renderScores() {
       const qres = (cfg.quiz?.domande || []).map((q, i) => { const r = A.quizResults[q.id]?.[t.id]; return r ? `<span class="qr ${r.corretta ? 'ok' : 'ko'}" title="Domanda ${i + 1}${r.sos ? ' con SOS' : ''}">${i + 1}${r.sos ? '🆘' : ''}</span>` : `<span class="qr" title="Domanda ${i + 1} da giocare">${i + 1}</span>`; }).join('');
       return `<tr><td><span class="sw-chip" style="background:${esc(t.colore)}"></span><b>${esc(t.nome)}</b><div class="indiv">${ind}</div></td>
         <td><span class="qbtns">${qres}</span> <b>${s.quiz}</b></td>
-        <td>${s.reazioniTotali}</td><td>${s.pubblico}</td><td>${s.sugarfree || ''}</td><td>${s.correzioni || ''}</td><td class="tot">${s.totale}</td></tr>`;
+        <td>${s.reazioniTotali}</td><td>${num(s.pubblico)}</td><td>${s.sugarfree || ''}</td><td>${s.correzioni || ''}</td><td class="tot">${num(s.totale)}</td></tr>`;
     }).join('')}
     </tbody></table>
     <p class="muted">Classifica privata in tempo reale: ${st.coppie.map((t) => `${t.posizione}°${t.exAequo ? '=' : ''} ${esc(t.nome)}`).join(' · ')}. Quiz: ${A.quizPerRisposta?.per ?? 10} punti per risposta giusta, ${A.quizPerRisposta?.sos ?? 5} con l'SOS (totale ${Q.totale ?? 30}). Errori: «Rigioca» la domanda oppure Correzione manuale.</p>`);

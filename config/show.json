@@ -153,19 +153,19 @@
     "quiz": {
       "totale": 50,
       "sosMeta": true,
-      "_nota": "Il quiz vale «totale» punti divisi per il numero di domande (5 domande = 10 punti l'una). Con l'SOS la risposta giusta vale la metà (5). Pesi scelti con una simulazione di 40.000 show: quiz 50, pubblico 30/20/10, Sugarfree 20 = contano tutte e tre le parti."
+      "_nota": "Il quiz vale «totale» punti divisi per il numero di domande (5 domande = 10 punti l'una). Con l'SOS la risposta giusta vale la metà (5). Pesi scelti con simulazioni su 12.000 show: quiz 50, pubblico 40/25/10, Sugarfree 25 (la preferita del pubblico vince ~62%, i Sugarfree ribaltano ~1 volta su 3)."
     },
     "pubblico": {
       "premi": [
-        30,
-        20,
+        40,
+        25,
         10
       ],
       "parita": "media",
-      "_parita_opzioni": "media = le coppie a pari merito si dividono i premi delle posizioni occupate (es. pari al 1° posto: 25 e 25). alto = tutte ricevono il premio della posizione migliore."
+      "_parita_opzioni": "media = le squadre a pari merito si dividono i premi delle posizioni occupate (es. pari al 1° posto: 32,5 e 32,5). alto = tutte ricevono il premio della posizione migliore."
     },
     "sugarfree": {
-      "bonus": 20
+      "bonus": 25
     },
     "spareggioFinale": [
       "quiz",
