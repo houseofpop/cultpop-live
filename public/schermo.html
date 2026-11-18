@@ -217,7 +217,7 @@
         `<b>Cult Pop LIVE · pagina LED</b><br>Connessione: ${connected ? 'OK' : 'ASSENTE' + (err ? ' (' + err + ')' : '')}<br>` +
         `Risoluzione: ${size.width}×${size.height}${transparent ? ' · sfondo trasparente' : ''}<br>` +
         `Audio: ${env.config && !audioOn() ? 'spento per questo show (suoniAttivi in config)' : sounds.state()}<br>` +
-        `Tasti: H aiuto · F schermo intero · P scarica PNG`;
+        `Tasti: H aiuto · T suono di prova · F schermo intero · P scarica PNG`;
     }
     help();
     // nei browser normali l'audio parte solo dopo un tasto o un clic (nei software di regia video di solito no)
@@ -228,6 +228,7 @@
       if (k === 'f') document.documentElement.requestFullscreen?.();
       if (k === 'p') downloadPng(cv);
       if (k === 'h') document.getElementById('help').classList.toggle('show');
+      if (k === 't') { sounds.unlock(); sounds.play('squadra'); sounds.play('applauso', { at: 0.6, stopAt: 2.5 }); } // prova dell'audio in OBS senza toccare la regia
     });
   </script>
 </body>
