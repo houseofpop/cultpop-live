@@ -1,7 +1,7 @@
 /* Sito del pubblico — mobile first */
 html, body { height: 100%; overscroll-behavior: none; }
 body { -webkit-user-select: none; user-select: none; }
-#app { min-height: 100dvh; display: flex; flex-direction: column; max-width: 520px; margin: 0 auto; padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 12px); }
+#app { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; max-width: 520px; margin: 0 auto; padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 12px); }
 
 .center-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 20px; padding: 24px 0; }
 .loading { font-weight: 700; opacity: .7; }

@@ -12,6 +12,9 @@ import { randomUUID } from 'node:crypto';
  */
 
 export const MODES = ['attesa', 'reazioni', 'sos', 'finale'];
+/** Valore di una chiave SOLO se è davvero dell'oggetto (mai 'constructor', '__proto__' & co. arrivati da un telefono). */
+const own = (o, k) => (typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
+
 export const LED_SCENES = ['quiztime', 'promo', 'classifica', 'generazioni', 'sos', 'chiuse', 'sugarfree', 'verdetto', 'premio', 'fine'];
 /** Passi di una domanda del quiz: 0 preparata, 1 domanda sul LED, 2..5 risposte A..D visibili (con la D parte il timer). */
 export const QUIZ_LAST_STEP = 5;
@@ -583,8 +586,8 @@ export class ShowEngine {
     for (const item of batch.slice(0, 32)) {
       if (!Array.isArray(item)) continue;
       const [cid, eid, nRaw] = item;
-      const emoji = this.emojiById[eid];
-      const r = this.s.reactions[cid];
+      const emoji = own(this.emojiById, eid);
+      const r = own(this.contById, cid) ? own(this.s.reactions, cid) : undefined;
       if (!emoji || !r) continue;
       const n = Math.max(0, Math.min(MAX_TAPS_PER_ITEM, Math.floor(Number(nRaw) || 0)));
       if (!n) continue;
@@ -609,7 +612,7 @@ export class ShowEngine {
 
   /** Quiz «Che Rom-Com sei?»: solo nel finale, ognuno in autonomia. */
   answerAB(sid, qid, choice) {
-    const q = this.abById[qid];
+    const q = own(this.abById, qid);
     if (!q) return { ok: false, reason: 'domanda' };
     const idx = 'ABCDEFGH'.indexOf(choice);
     if (typeof choice !== 'string' || choice.length !== 1 || idx < 0 || idx >= q.opzioni.length) return { ok: false, reason: 'scelta' };

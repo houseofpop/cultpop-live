@@ -141,21 +141,23 @@ io.on('connection', (socket) => {
     return ++count > 8;
   };
 
-  socket.on('time', (_x, ack) => typeof ack === 'function' && ack(Date.now()));
-  socket.on('react', (msg) => { if (!flood()) engine().react(sid, msg?.b); });
-  socket.on('ab', (msg, ack) => {
+  // un messaggio strano da un telefono non deve mai fermare lo show: errore registrato, risposta «no», si va avanti
+  const safe = (fn) => (...a) => { try { fn(...a); } catch (err) { console.error('Messaggio dal pubblico scartato:', err.message); const ack = a.at(-1); if (typeof ack === 'function') try { ack({ ok: false, reason: 'errore' }); } catch { /* */ } } };
+  socket.on('time', safe((_x, ack) => typeof ack === 'function' && ack(Date.now())));
+  socket.on('react', safe((msg) => { if (!flood()) engine().react(sid, msg?.b); }));
+  socket.on('ab', safe((msg, ack) => {
     if (flood() || typeof ack !== 'function') return;
     ack(engine().answerAB(sid, msg?.qid, msg?.choice));
-  });
-  socket.on('profile', (msg, ack) => {
+  }));
+  socket.on('profile', safe((msg, ack) => {
     if (flood() || typeof ack !== 'function') return;
     ack(engine().setProfile(sid, msg?.nick, msg?.year));
-  });
-  socket.on('sos', (msg, ack) => {
+  }));
+  socket.on('sos', safe((msg, ack) => {
     if (flood() || typeof ack !== 'function') return;
     ack(engine().voteSos(sid, msg?.runId, msg?.idx));
-  });
-  socket.on('me', (_x, ack) => typeof ack === 'function' && ack(engine().personal(sid)));
+  }));
+  socket.on('me', safe((_x, ack) => typeof ack === 'function' && ack(engine().personal(sid))));
 });
 
 // ---------- SCHERMO (LED) ----------
@@ -173,9 +175,10 @@ const failed = new Map(); // ip -> {n, until}
 adminNs.use((socket, next) => {
   // indirizzo reale del visitatore (dietro Render tutti arrivano dallo stesso proxy)
   const ip = String(socket.handshake.headers['x-forwarded-for'] || socket.handshake.address).split(',')[0].trim();
-  const f = failed.get(ip);
+  if (safeEq(socket.handshake.auth?.password, ADMIN_PASSWORD)) { failed.delete(ip); return next(); } // la password giusta entra sempre (pubblico e regia possono avere lo stesso IP)
+  let f = failed.get(ip);
   if (f && f.until > Date.now()) return next(new Error('troppi tentativi, riprova tra un minuto'));
-  if (safeEq(socket.handshake.auth?.password, ADMIN_PASSWORD)) { failed.delete(ip); return next(); }
+  if (f && f.until && f.until <= Date.now()) f = null; // blocco scaduto: si riparte da zero
   const n = (f?.n || 0) + 1;
   failed.set(ip, { n, until: n >= 5 ? Date.now() + 60_000 : 0 });
   next(new Error('password errata'));
@@ -279,6 +282,9 @@ function shutdown() {
   for (const id of SHOW_IDS) { engines[id].dirty = true; persist(engines[id]); }
   process.exit(0);
 }
+// rete di sicurezza: un errore imprevisto si registra, il server resta acceso (lo show non si ferma)
+process.on('uncaughtException', (err) => console.error('Errore imprevisto (server ancora acceso):', err));
+process.on('unhandledRejection', (err) => console.error('Promessa rifiutata (server ancora acceso):', err));
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 

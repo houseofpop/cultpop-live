@@ -67,7 +67,10 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   keepAwake();
   if (!socket.connected) socket.connect();
-  else socket.emit('me', null, (m) => { me = { ...me, ...m }; render(true); });
+  else socket.timeout(3000).emit('me', null, (err, m) => {
+    if (err) { socket.io.engine?.close(); return; } // connessione morta dopo un blocco breve: si riapre subito
+    me = { ...me, ...m }; render(true);
+  });
 });
 
 function syncClock() {
@@ -397,7 +400,8 @@ function renderSos(fresh = false) {
     $app.querySelectorAll('.opt').forEach((x) => (x.disabled = true));
     socket.timeout(5000).emit('sos', { runId: s.runId, idx }, (err, res) => {
       if (!err && res?.ok) { me.sosVotes = { ...me.sosVotes, [s.runId]: res.choice }; buzz(30); renderSos(false); }
-      else if (!err && res?.reason === 'scaduto') renderSos(false);
+      else if (!err && res?.reason === 'scaduto') { state.sos.closed = true; render(); } // voto già chiuso dalla regia
+      else if (!err && (res?.reason === 'sos' || res?.reason === 'profilo')) socket.emit('me', null, (m) => { me = { ...me, ...m }; render(true); }); // SOS cambiato o sessione azzerata: si riallinea
       else { $app.querySelectorAll('.opt').forEach((x) => (x.disabled = false)); showConn('Voto non inviato, riprova!', true); setTimeout(() => showConn(socket.connected ? null : 'Riconnessione…'), 2000); }
     });
   }));

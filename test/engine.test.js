@@ -545,3 +545,21 @@ test('QUIZ TIME: va sul LED con un clic, poi la domanda del quiz la sostituisce'
   e.quizOpen('q1'); e.quizNext();
   assert.equal(e.screenState().program.type, 'quiz');
 });
+
+test('Dati costruiti apposta da un telefono: niente crash, punti intatti, niente inquinamento', () => {
+  const { e } = make();
+  e.setReactionsMode?.();
+  const before = JSON.stringify(e.computeStandings());
+  for (const k of ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'prototype']) {
+    assert.doesNotThrow(() => e.react('s1', [[k, 'ride', 3], ['c1', k, 3], [k, k, 3]]));
+    assert.doesNotThrow(() => e.answerAB('s1', k, 'A'));
+    assert.doesNotThrow(() => e.voteSos('s1', k, 0));
+  }
+  assert.doesNotThrow(() => e.react('s1', null));
+  assert.doesNotThrow(() => e.react('s1', [null, 5, 'x', [{}, [], 1e9]]));
+  assert.equal(({}).ride, undefined); // Object.prototype non toccato
+  assert.equal(({}).raw, undefined);
+  const st = e.computeStandings();
+  assert.ok(st.coppie.every((t) => Number.isFinite(t.totale)));
+  assert.equal(JSON.stringify(st), before);
+});
