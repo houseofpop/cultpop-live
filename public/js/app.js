@@ -6,9 +6,11 @@ import { paper, scribble, plus, C } from './deco.js';
 
 const params = new URLSearchParams(location.search);
 const SHOW = params.get('show') === 'prova' ? 'prova' : 'live';
+// memoria del telefono; se il browser non la concede (modalità privata, alcuni browser dentro le app) si tiene in RAM per questa visita
+const mem = new Map();
 const store = {
-  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch { /* modalità privata */ } },
+  get(k) { try { const v = localStorage.getItem(k); if (v != null) return v; } catch { /* non disponibile */ } return mem.has(k) ? mem.get(k) : null; },
+  set(k, v) { mem.set(k, String(v)); try { localStorage.setItem(k, v); } catch { /* modalità privata: resta in RAM */ } },
 };
 const K = (k) => `cp_${SHOW}_${k}`;
 
