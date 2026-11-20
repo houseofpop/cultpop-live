@@ -439,7 +439,7 @@ function renderLed() {
   const vPos = program?.type === 'verdetto' ? [...new Set((program.standings?.coppie || []).map((t) => t.posizione))].sort((a, b) => b - a) : [];
   const vNext = vPos[(program?.rivelati || []).length];
   const vb = $('verdettoBtn');
-  vb.hidden = vNext == null;
+  vb.hidden = vNext == null || !!program.auto; // verdetto automatico: niente pulsante, esce tutto da solo con la canzone
   if (vNext != null) {
     const ultimo = (program.rivelati || []).length === vPos.length - 1;
     vb.classList.toggle('primo', ultimo);
@@ -453,13 +453,13 @@ function renderLed() {
   const same = preview && program && sceneSig({ ...preview, publishedAt: undefined, rivelati: undefined, apertoAt: undefined }) === sceneSig({ ...program, publishedAt: undefined, rivelati: undefined, apertoAt: undefined });
   pubBtn.disabled = !preview || same;
   pubBtn.classList.toggle('danger-hold', preview?.type === 'verdetto');
-  pubBtn.querySelector('.hold-label').textContent = !preview ? 'Prepara prima una scena' : same ? 'Già sulla pagina LED ✓' : preview.type === 'verdetto' ? 'PUBBLICA IL VERDETTO, carte coperte (tieni premuto 2 secondi)' : `PUBBLICA SUL LED ▶ ${SCENE_LABEL[preview.type]}`;
+  pubBtn.querySelector('.hold-label').textContent = !preview ? 'Prepara prima una scena' : same ? 'Già sulla pagina LED ✓' : preview.type === 'verdetto' ? (pub.show?.verdetto?.automatico ? 'PUBBLICA IL VERDETTO: parte la canzone (tieni premuto 2 secondi)' : 'PUBBLICA IL VERDETTO, carte coperte (tieni premuto 2 secondi)') : `PUBBLICA SUL LED ▶ ${SCENE_LABEL[preview.type]}`;
   $('previewInfo').textContent = preview ? `${SCENE_LABEL[preview.type]}, preparata alle ${hhmm(preview.t)}${preview.type === 'classifica' || preview.type === 'generazioni' || preview.type === 'verdetto' ? ' (dati fotografati in quel momento: ripremi per aggiornarli)' : ''}` : 'Nessuna anteprima.';
   if (preview?.type === 'verdetto') {
     const vt = tiesIn(preview.standings?.coppie || []);
     if (vt.length) $('previewInfo').textContent += ` ⚠️ PARITÀ nel verdetto: ${vt.map((p) => p.squadre.join(' e ') + ' a ' + p.totale).join('; ')}. Decide lo spareggio (quiz, poi pubblico) oppure fate una correzione manuale e ripreparate il verdetto.`;
   }
-  $('programInfo').textContent = program ? `${SCENE_LABEL[program.type]}${program.publishedAt ? ', pubblicata alle ' + hhmm(program.publishedAt) : ''}. Il tecnico la manda in onda quando serve.` : '';
+  $('programInfo').textContent = program ? `${SCENE_LABEL[program.type]}${program.publishedAt ? ', pubblicata alle ' + hhmm(program.publishedAt) : ''}. ${program.type === 'verdetto' && program.auto ? (A.verdictDone ? 'Verdetto svelato: lascia sfumare la canzone, poi Premiazione.' : 'Automatico con la canzone: il 3° esce da solo, poi 2° e 1° insieme sul ritornello. Non toccare niente.') : 'Il tecnico la manda in onda quando serve.'}` : '';
   $('screenLink').href = `/schermo?key=${encodeURIComponent(screenKey)}&show=${A.showId}`;
   const sp = sceneSig(preview), sg = sceneSig(program);
   if (sp !== lastPrev) { lastPrev = sp; if (preview) drawScene($('previewCv'), preview, envFor(), ledSize()); else clearCv($('previewCv')); }

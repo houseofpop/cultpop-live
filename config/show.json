@@ -53,7 +53,8 @@
       "fanfara": "audio/fanfara.mp3",
       "applauso": "audio/applauso.mp3",
       "timerQuiz": "audio/timer-quiz.mp3",
-      "rulloPremio": "audio/rullo-premio.wav"
+      "rulloPremio": "audio/rullo-premio.wav",
+      "verdettoMusica": "audio/verdetto-champions.mp3"
     },
     "intro": {
       "attiva": true,
@@ -75,6 +76,12 @@
       "titolo": "LA PAROLA AGLI SUGARFREE",
       "nome": "SUGARFREE",
       "immagine": "img/sugarfree/sugarfree.webp"
+    },
+    "verdetto": {
+      "_nota": "Verdetto automatico con «We Are The Champions» (file senza i 3 s di silenzio iniziale): 3° posto a 12 s, 2° e 1° insieme a 33 s dalla pubblicazione, cioè 0:15 e 0:36 del video originale.",
+      "automatico": true,
+      "terzoMs": 12000,
+      "primiMs": 33000
     }
   },
   "coppie": [

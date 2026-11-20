@@ -95,6 +95,7 @@
       else if (p.type === 'chiuse') sounds.play('chiuse'); // solo rullo e piatto
       else if (p.type === 'sugarfree' && !p.scelta) sounds.play('rulloPremio', { loopFrom: 0 }); // rullo finché gli Sugarfree non scelgono
       else if (p.type === 'premio' && !p.apertoAt) sounds.play('rulloPremio', { loopFrom: 0 }); // rullo continuo finché la busta non si apre
+      else if (p.type === 'verdetto' && p.auto) sounds.play('verdettoMusica'); // verdetto automatico: We Are The Champions, le posizioni escono a tempo
       else if (p.type === 'verdetto' && !verdettoFinito(p)) sounds.play(verdettoSotto(), { loopFrom: 0 }); // sotto il verdetto, finché non compare il 1°
     }
     // verdetto: la regia svela le posizioni una alla volta; colpo sul 3° e sul 2°, tromba e applausi sul 1°
@@ -104,7 +105,7 @@
     let verdSeen = { key: '' };
     function watchVerdetto(p, init) {
       const n = (p.rivelati || []).length;
-      if (!init && verdSeen.key === sceneKey && n > verdSeen.n) {
+      if (!init && !p.auto && verdSeen.key === sceneKey && n > verdSeen.n) { // nel verdetto automatico suona solo la canzone
         const late = Math.max(0, (env.now() - p.rivelati[n - 1]) / 1000);
         if (late > 3) { if (n >= verdettoPos(p)) sounds.stop(verdettoSotto()); }
         else if (n >= verdettoPos(p)) { sounds.stop(verdettoSotto()); sounds.play('fanfara', { offset: Math.min(late, 1) }); sounds.play('applauso', { at: Math.max(0, 0.4 - late) }); }

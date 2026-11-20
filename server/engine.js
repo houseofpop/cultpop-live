@@ -188,6 +188,7 @@ export class ShowEngine {
   }
 
   tick() {
+    this.verdettoAutomatico();
     const z = this.s.qz;
     if (z?.timer && !z.timer.endedLogged && this.quizTimer(z).ended) { z.timer.endedLogged = true; this.log('Quiz: TEMPO scaduto'); this.touch(false); }
     const r = this.s.sos;
@@ -522,9 +523,25 @@ export class ShowEngine {
     this.s.led.program = { ...p, publishedAt: this.now() };
     if (p.type === 'verdetto') {
       this.s.verdictPublished = true; this.s.verdict = p.standings; this.s.verdictDone = false;
-      this.s.led.program.rivelati = []; // le posizioni si svelano una alla volta, quando lo decide la regia
+      this.s.led.program.rivelati = []; // le posizioni si svelano una alla volta
+      this.s.led.program.auto = !!this.config.show?.verdetto?.automatico; // automatico: con la canzone, ai tempi fissati in config (vedi tick)
     }
     this.log(`LED: PUBBLICATO (${p.type})`);
+    this.touch();
+  }
+
+  /** Verdetto automatico: il 3° posto esce a terzoMs, 2° e 1° insieme a primiMs (dalla pubblicazione, a tempo con la canzone). */
+  verdettoAutomatico() {
+    const p = this.s.led.program;
+    if (p?.type !== 'verdetto' || !p.auto || this.s.verdictDone) return;
+    const V = this.config.show?.verdetto || {}, n = new Set((p.standings?.coppie || []).map((t) => t.posizione)).size || 1;
+    const at = (k) => p.publishedAt + (k === 0 && n > 1 ? (V.terzoMs ?? 12000) : (V.primiMs ?? 33000)); // il peggiore prima, tutti gli altri insieme al ritornello
+    p.rivelati ||= [];
+    let changed = false;
+    while (p.rivelati.length < n && this.now() >= at(p.rivelati.length)) { p.rivelati.push(at(p.rivelati.length)); changed = true; }
+    if (!changed) return;
+    if (p.rivelati.length === n) { this.s.verdictDone = true; this.log('LED → Verdetto: svelati 2° e 1° posto (automatico)'); }
+    else this.log('LED → Verdetto: svelato l\'ultimo posto (automatico)');
     this.touch();
   }
 
@@ -532,6 +549,7 @@ export class ShowEngine {
   verdettoAvanti() {
     const p = this.s.led.program;
     if (p?.type !== 'verdetto') throw new Error('Prima pubblica il verdetto sul LED');
+    if (p.auto) throw new Error('Il verdetto è automatico: le posizioni escono da sole con la canzone');
     const n = new Set((p.standings?.coppie || []).map((t) => t.posizione)).size;
     p.rivelati ||= [];
     if (p.rivelati.length >= n) throw new Error('Il verdetto è già tutto svelato');

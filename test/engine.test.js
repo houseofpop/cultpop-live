@@ -130,11 +130,14 @@ test('Sugarfree: un solo bonus, bloccabile, verdetto solo con voto confermato', 
   assert.deepEqual(e.screenState().program.rivelati, []); // le posizioni si svelano a mano dalla regia
   assert.equal(e.publicState().classifica, undefined); // finché non è svelato tutto, i telefoni non lo vedono
   const n = new Set(e.s.verdict.coppie.map((t) => t.posizione)).size;
-  e.verdettoAvanti();
-  assert.throws(() => e.verdettoAvanti(), /attimo/); // doppio clic: non salta una posizione
-  for (let i = 1; i < n; i++) { clock.advance(2000); e.verdettoAvanti(); }
-  assert.equal(e.screenState().program.rivelati.length, n);
-  clock.advance(2000); assert.throws(() => e.verdettoAvanti(), /già tutto/);
+  assert.equal(e.screenState().program.auto, true);
+  assert.throws(() => e.verdettoAvanti(), /automatico/); // niente clic: esce tutto da solo con la canzone
+  clock.advance(11900); e.tick(); assert.equal(e.screenState().program.rivelati.length, 0);
+  clock.advance(200); e.tick(); assert.equal(e.screenState().program.rivelati.length, 1); // ultimo posto a 12 s
+  assert.equal(e.publicState().classifica, undefined);
+  clock.advance(20000); e.tick(); assert.equal(e.screenState().program.rivelati.length, 1);
+  clock.advance(1000); e.tick(); assert.equal(e.screenState().program.rivelati.length, n); // tutti gli altri insieme a 33 s
+  assert.equal(new Set(e.screenState().program.rivelati.slice(1)).size, 1);
   assert.throws(() => e.ledPrepare('verdetto'), /già in onda/); // ripubblicarlo ricoprirebbe le carte
   assert.throws(() => e.setSugarfreeLocked(false), /verdetto/);
   assert.equal(e.publicState().classifica[0].id, 't2');
@@ -499,7 +502,7 @@ test('Premiazione: solo dopo il verdetto, la busta si apre una volta sola e solo
   e.setSugarfree('t2'); e.setSugarfreeLocked(true); e.goFinale();
   e.ledPrepare('verdetto'); e.ledPublish();
   assert.throws(() => e.ledPrepare('premio'), /svela/); // prima vanno svelate tutte le posizioni
-  for (const _ of new Set(e.s.verdict.coppie.map((t) => t.posizione))) { clock.advance(2000); e.verdettoAvanti(); }
+  clock.advance(34000); e.tick(); // verdetto automatico: dopo il ritornello è tutto svelato
   e.ledPrepare('premio');
   assert.throws(() => e.premioApri(), /Premiazione/); // solo in anteprima: non si apre
   e.ledPublish();
